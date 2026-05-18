@@ -251,10 +251,15 @@
 </div>
 
 <!-- VIEWER BANNER -->
-<div id="viewer-banner" style="display:none;position:sticky;top:0;z-index:999;background:rgba(245,158,11,.12);border-bottom:1px solid rgba(245,158,11,.35);padding:8px 24px;align-items:center;gap:10px;">
+<div id="viewer-banner" style="display:none;position:sticky;top:0;z-index:999;background:rgba(245,158,11,.12);border-bottom:1px solid rgba(245,158,11,.35);padding:8px 24px;align-items:center;gap:10px;flex-wrap:wrap;">
   <span style="font-size:16px;">👁</span>
   <span style="font-size:13px;font-weight:600;color:var(--yellow);">Perfil somente leitura</span>
-  <span style="font-size:12px;color:var(--text2);">Você pode visualizar, filtrar e exportar dados. Para editar ou inserir documentos, entre com uma conta Admin.</span>
+  <span style="font-size:12px;color:var(--text2);flex:1;">Você pode visualizar, filtrar e exportar dados.</span>
+  <span id="viewer-sync-status" style="font-size:11px;color:var(--text2);"></span>
+  <button onclick="viewerRefresh()" id="btn-viewer-refresh"
+    style="background:rgba(245,158,11,.2);border:1px solid rgba(245,158,11,.5);color:var(--yellow);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+    🔄 Atualizar dados
+  </button>
 </div>
 
 <header class="header">
@@ -1282,7 +1287,11 @@ function isAdmin() { return currentRole === 'admin'; }
 const SB_URL    = 'https://lvguzewifqqwoopxvkke.supabase.co';
 const SB_KEY    = 'sb_publishable_aG2y5QSvKRkMQ1BIyzs66g_GWCCz8Pk';
 const SB_TABLE  = 'doctcu_data';
-const SB_HEADS  = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+const SB_HEADS  = {
+  'apikey':        SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Content-Type':  'application/json',
+};
 
 let _syncTimer  = null;
 let _lastSyncTs = 0;
@@ -1291,6 +1300,7 @@ let _isSaving   = false;
 // Salva todos os employees no Supabase (admin only)
 async function saveToStorage() {
   if (!isAdmin() || _isSaving) return;
+  console.log('[DocTCU] saveToStorage called, employees:', employees.length);
   _isSaving = true;
   const ind = document.getElementById('sync-indicator');
   try {
@@ -1324,13 +1334,15 @@ async function saveToStorage() {
 async function loadFromStorage() {
   try {
     const res  = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?id=eq.main&select=employees,updated_at`, { headers: SB_HEADS });
+    if (!res.ok) { console.warn('[DocTCU] load HTTP error:', res.status, await res.text()); return false; }
     const rows = await res.json();
-    if (!rows?.length || !rows[0].employees?.length) return false;
+    console.log('[DocTCU] loadFromStorage rows:', rows?.length, rows?.[0]?.updated_at);
+    if (!rows?.length || !Array.isArray(rows[0].employees) || rows[0].employees.length === 0) return false;
     employees = rows[0].employees;
     _lastSyncTs = new Date(rows[0].updated_at).getTime();
     return true;
   } catch(err) {
-    console.warn('Supabase load error:', err);
+    console.warn('[DocTCU] Supabase load error:', err);
     return false;
   }
 }
@@ -1338,13 +1350,16 @@ async function loadFromStorage() {
 // Viewer: polling a cada 5s para detectar mudanças do admin
 function startViewerSync() {
   if (isAdmin()) return;
+  console.log('[DocTCU] startViewerSync — polling every 5s');
   _syncTimer = setInterval(async () => {
     try {
       const res  = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?id=eq.main&select=updated_at`, { headers: SB_HEADS });
+      if (!res.ok) return;
       const rows = await res.json();
       if (!rows?.length) return;
       const ts = new Date(rows[0].updated_at).getTime();
       if (ts > _lastSyncTs) {
+        console.log('[DocTCU] New data detected! ts:', ts, 'lastTs:', _lastSyncTs);
         _lastSyncTs = ts;
         const ok = await loadFromStorage();
         if (ok) {
@@ -1355,12 +1370,44 @@ function startViewerSync() {
           showSyncPulse();
         }
       }
-    } catch(e) { /* silently ignore network errors */ }
+    } catch(e) { console.warn('[DocTCU] sync poll error:', e); }
   }, 5000);
 }
 
-// Pulso visual quando viewer recebe atualização
+// Botão de atualizar manual para viewer
+async function viewerRefresh() {
+  const btn = document.getElementById('btn-viewer-refresh');
+  const status = document.getElementById('viewer-sync-status');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Atualizando…'; }
+  if (status) { status.textContent = ''; }
+  try {
+    const ok = await loadFromStorage();
+    if (ok) {
+      initFilters();
+      updateDashboard();
+      renderControle();
+      renderColaboradores();
+      showSyncPulse();
+      const now = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      if (status) status.textContent = `Última atualização: ${now}`;
+    } else {
+      if (status) { status.style.color = 'var(--yellow)'; status.textContent = 'Sem dados no servidor ainda.'; }
+    }
+  } catch(e) {
+    if (status) { status.style.color = 'var(--red)'; status.textContent = 'Erro ao conectar.'; }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 Atualizar dados'; }
+}
+
 function showSyncPulse() {
+  // Update banner status
+  const status = document.getElementById('viewer-sync-status');
+  if (status) {
+    const now = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    status.style.color = 'var(--green)';
+    status.textContent = `Última atualização: ${now}`;
+  }
+  // Toast notification
   let el = document.getElementById('sync-pulse');
   if (!el) {
     el = document.createElement('div');
