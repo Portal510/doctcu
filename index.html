@@ -267,6 +267,7 @@
   </nav>
   <div class="header-actions">
     <span id="logged-user" style="font-size:12px;color:var(--text2);margin-right:8px;"></span>
+    <span id="sync-indicator" style="font-size:11px;margin-right:8px;transition:color .3s;"></span>
     <button class="btn btn-secondary btn-sm" onclick="doLogout()">Sair</button>
     <button class="btn btn-secondary btn-sm" onclick="exportExcel()">⬇ Exportar</button>
     <button class="btn btn-primary btn-sm" onclick="openImportModal()">⬆ Importar</button>
@@ -1271,6 +1272,100 @@ const USERS = [
 let currentRole = 'viewer';
 function isAdmin() { return currentRole === 'admin'; }
 
+// ================================================================
+// SYNC AUTOMÁTICO — Admin grava → Viewer lê em tempo real
+// Usa localStorage como canal de comunicação entre abas/usuários
+// ================================================================
+const SYNC_KEY     = 'doctcu_data_v1';
+const SYNC_TS_KEY  = 'doctcu_ts_v1';
+let   _syncTimer   = null;
+let   _lastSyncTs  = 0;
+let   _skipSave    = false; // evita loop save→load→save
+
+// Serializa employees para localStorage (apenas dados, sem File objects)
+function saveToStorage() {
+  if (_skipSave) return;
+  try {
+    const data = employees.map(e => ({
+      ...e,
+      uniforme_anexo:      null, // File objects não são serializáveis
+      uniforme_anexo_nome: e.uniforme_anexo_nome || '',
+    }));
+    const ts = Date.now();
+    localStorage.setItem(SYNC_KEY,    JSON.stringify(data));
+    localStorage.setItem(SYNC_TS_KEY, String(ts));
+    _lastSyncTs = ts;
+  } catch(err) {
+    console.warn('saveToStorage error:', err);
+  }
+}
+
+// Carrega employees do localStorage (sobrescreve dados em memória)
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(SYNC_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data) || data.length === 0) return false;
+    _skipSave = true;
+    employees = data;
+    _skipSave = false;
+    return true;
+  } catch(err) {
+    console.warn('loadFromStorage error:', err);
+    return false;
+  }
+}
+
+// Viewer: monitora localStorage e atualiza a tela quando admin muda algo
+function startViewerSync() {
+  if (isAdmin()) return; // admin não precisa monitorar
+  _lastSyncTs = parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
+
+  _syncTimer = setInterval(() => {
+    const ts = parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
+    if (ts > _lastSyncTs) {
+      _lastSyncTs = ts;
+      const ok = loadFromStorage();
+      if (ok) {
+        initFilters();
+        updateDashboard();
+        renderControle();
+        renderColaboradores();
+        showSyncPulse();
+      }
+    }
+  }, 2000); // verifica a cada 2 segundos
+}
+
+// Pulso visual quando viewer recebe atualização
+function showSyncPulse() {
+  let el = document.getElementById('sync-pulse');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sync-pulse';
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:rgba(16,185,129,.95);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:9998;transition:opacity .5s;';
+    document.body.appendChild(el);
+  }
+  el.textContent = '🔄 Dados atualizados pelo administrador';
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, 3000);
+}
+
+// Admin: hook chamado após qualquer mutação de dados
+function notifyDataChange() {
+  if (!isAdmin()) return;
+  saveToStorage();
+  // Mostra indicador de sincronização no header
+  const ind = document.getElementById('sync-indicator');
+  if (ind) {
+    ind.textContent = '✓ sincronizado';
+    ind.style.color = 'var(--green)';
+    setTimeout(() => { if(ind) ind.textContent = ''; }, 2000);
+  }
+}
+
+
 function applyRoleRestrictions() {
   if (isAdmin()) return;
   // Hide aba Documentos (upload/sincronizar)
@@ -1331,13 +1426,19 @@ async function doLogin() {
 }
 
 function initApp() {
-  loadSampleData();
+  // Admin: carrega do storage se houver dados salvos (persistência entre sessões)
+  // Viewer: sempre carrega do storage para pegar dados do admin
+  const hasStored = loadFromStorage();
+  if (!hasStored) loadSampleData();
   initFilters();
   updateDashboard();
   renderControle();
   populateCargoSelect('new-cargo');
   populateColaboradorSelect();
-  setTimeout(applyRoleRestrictions, 150);
+  setTimeout(() => {
+    applyRoleRestrictions();
+    if (!isAdmin()) startViewerSync();
+  }, 150);
 }
 
 function doLogout() {
@@ -2249,6 +2350,7 @@ function toggleDocBtn(docId) {
 }
 
 function saveDocStatus() {
+  notifyDataChange();
   const emp = employees.find(e => e.id === editingEmpId);
   if (!emp) return;
   emp.docs = { ...editingDocStatus };
@@ -2366,6 +2468,7 @@ function addEmployee() {
   renderControle();
   renderColaboradores();
   updateDashboard();
+  notifyDataChange();
   toast('Colaborador adicionado!', 'success');
 }
 
@@ -2375,6 +2478,7 @@ function removeEmployee(id) {
   renderColaboradores();
   renderControle();
   updateDashboard();
+  notifyDataChange();
   toast('Colaborador removido', 'success');
 }
 
@@ -2457,6 +2561,7 @@ function saveEditEmployee() {
   renderColaboradores();
   renderControle();
   updateDashboard();
+  notifyDataChange();
   toast(`✅ ${nome} atualizado!`, 'success');
 }
 
@@ -2963,6 +3068,7 @@ function sincronizarDocumentos() {
   }
 
   renderDocs(); updateDashboard(); renderControle(); renderColaboradores();
+  notifyDataChange();
 
   if (synced > 0) {
     const pending = uploadedDocs.filter(d => !d.synced).length;
