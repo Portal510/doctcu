@@ -707,9 +707,10 @@
       <div class="filter-label">Status</div>
       <select id="ctrl-status" onchange="renderControle()">
         <option value="">Todos</option>
-        <option value="ok">Completo</option>
-        <option value="pendente">Pendente</option>
-        <option value="critico">Crítico</option>
+        <option value="ok">✅ Completo</option>
+        <option value="pendente">⚠ Pendente</option>
+        <option value="critico">🔴 Crítico</option>
+        <option value="nao_entregue">✕ Com doc não entregue</option>
       </select>
     </div>
     <div class="filter-group">
@@ -2307,7 +2308,15 @@ function renderControle() {
     if (ufF && e.uf !== ufF) return false;
     if (ativoF === 'sim' && e.saida) return false;
     if (ativoF === 'nao' && !e.saida) return false;
-    if (statusF && getStatusLabel(e) !== statusF) return false;
+    if (statusF === 'nao_entregue') {
+      const alias = getCargoAlias(e.cargo);
+      const temNaoEntregue = DOC_TYPES.some(dt =>
+        isDocRequired(dt, alias) &&
+        !isDocSatisfiedByOr(dt.id, alias, e.docs || {}) &&
+        (e.docs?.[dt.id] === null || e.docs?.[dt.id] === undefined || e.docs?.[dt.id] === '')
+      );
+      if (!temNaoEntregue) return false;
+    } else if (statusF && getStatusLabel(e) !== statusF) return false;
     return true;
   });
 
