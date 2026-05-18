@@ -1828,6 +1828,9 @@ function updateDashboard() {
     });
     const labels = Object.keys(cargoGroups);
     destroyChart('chartCargo');
+    // Reset canvas to clear any stale render artifacts
+    const oldCargo = document.getElementById('chartCargo');
+    if (oldCargo) { const p=oldCargo.parentNode; const nc=document.createElement('canvas'); nc.id='chartCargo'; p.replaceChild(nc,oldCargo); }
     const cvsCargo = document.getElementById('chartCargo');
     if (cvsCargo) {
       charts.chartCargo = new Chart(cvsCargo, {
@@ -1854,6 +1857,8 @@ function updateDashboard() {
 
   try {
     destroyChart('chartDonut');
+    const oldDonut = document.getElementById('chartDonut');
+    if (oldDonut) { const p=oldDonut.parentNode; const nc=document.createElement('canvas'); nc.id='chartDonut'; p.replaceChild(nc,oldDonut); }
     const cvsDonut = document.getElementById('chartDonut');
     if (cvsDonut) {
       charts.chartDonut = new Chart(cvsDonut, {
@@ -2426,14 +2431,17 @@ function toggleDocBtn(docId) {
 }
 
 function saveDocStatus() {
-  notifyDataChange();
   const emp = employees.find(e => e.id === editingEmpId);
   if (!emp) return;
+  // 1. Aplica os dados ANTES de salvar e renderizar
   emp.docs = { ...editingDocStatus };
   closeModal('editdoc');
+  // 2. Re-renderiza tudo imediatamente
   renderControle();
   updateDashboard();
   renderColaboradores();
+  // 3. Salva no Supabase com os dados já atualizados
+  notifyDataChange();
   toast('Documentos atualizados!', 'success');
 }
 
