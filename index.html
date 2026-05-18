@@ -1,0 +1,3180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Documentos — TCU</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --orange: #f97316;
+    --gray: #4b5563;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px; position: sticky; top: 0; z-index: 100;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+  .nav-tabs { display: flex; gap: 2px; background: var(--surface2); border-radius: 10px; padding: 4px; }
+  .nav-tab { padding: 7px 18px; border-radius: 7px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--text2); background: transparent; transition: all .2s; }
+  .nav-tab.active { background: var(--accent); color: #000; font-weight: 600; }
+
+  .main { padding: 24px 32px; max-width: 1800px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+  .stat-card.blue::before { background: var(--accent); }
+  .stat-card.green::before { background: var(--green); }
+  .stat-card.yellow::before { background: var(--yellow); }
+  .stat-card.red::before { background: var(--red); }
+  .stat-card.orange::before { background: var(--orange); }
+  .stat-label { font-size: 11px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 30px; font-weight: 800; }
+  .stat-card.blue .stat-value { color: var(--accent); }
+  .stat-card.green .stat-value { color: var(--green); }
+  .stat-card.yellow .stat-value { color: var(--yellow); }
+  .stat-card.red .stat-value { color: var(--red); }
+  .stat-card.orange .stat-value { color: var(--orange); }
+  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .section-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; }
+  .section-sub { color: var(--text2); font-size: 14px; margin-top: 2px; }
+
+  .filters { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .filter-label { font-size: 11px; color: var(--text2); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  select, input[type="text"], input[type="search"] {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; transition: border-color .2s;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+
+  .table-wrap { overflow-x: auto; overflow-y: auto; max-height: 600px; border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead tr { background: var(--surface2); position: sticky; top: 0; z-index: 10; }
+  th { padding: 10px 10px; text-align: left; font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); white-space: nowrap; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tbody tr:hover { background: var(--surface2); }
+
+  .doc-cell {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 6px; font-size: 11px; font-weight: 700;
+    cursor: pointer; transition: transform .1s; border: 1px solid transparent;
+  }
+  .doc-cell:hover { transform: scale(1.15); z-index: 5; position: relative; }
+  .doc-cell.ok { background: rgba(16,185,129,.2); color: var(--green); border-color: rgba(16,185,129,.3); }
+  .doc-cell.pendente { background: rgba(245,158,11,.2); color: var(--yellow); border-color: rgba(245,158,11,.3); }
+  .doc-cell.na { background: rgba(75,85,99,.15); color: var(--gray); border-color: var(--border); font-size: 9px; }
+  .doc-cell.vazio { background: rgba(239,68,68,.1); color: var(--red); border-color: rgba(239,68,68,.2); }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.ok { background: rgba(16,185,129,.15); color: var(--green); }
+  .badge.pendente { background: rgba(245,158,11,.15); color: var(--yellow); }
+  .badge.critico { background: rgba(239,68,68,.12); color: var(--red); }
+  .badge.na { background: rgba(75,85,99,.2); color: var(--gray); }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; transition: all .2s; }
+  .btn-primary { background: var(--accent); color: #000; font-weight: 600; }
+  .btn-primary:hover { background: #00b8e0; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-success { background: var(--green); color: #fff; font-weight: 600; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  .search-wrap { position: relative; }
+  .search-wrap input { padding-left: 36px; width: 280px; }
+  .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text2); font-size: 14px; pointer-events: none; }
+
+  .progress-bar-wrap { background: var(--border); border-radius: 4px; height: 5px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; max-width: 640px; width: 90%; max-height: 90vh; overflow-y: auto; animation: slideUp .2s ease; }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .modal-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; }
+  .modal-close { background: var(--surface2); border: 1px solid var(--border); color: var(--text); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+
+  .doc-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .doc-type-btn { padding: 14px 16px; border-radius: 10px; border: 2px solid var(--border); cursor: pointer; background: var(--surface2); text-align: left; transition: all .2s; }
+  .doc-type-btn:hover { border-color: var(--accent); background: rgba(0,212,255,.05); }
+  .doc-type-btn.selected { border-color: var(--green); background: rgba(16,185,129,.1); }
+  .doc-type-btn.not-required { border-color: var(--gray); opacity: .5; }
+  .doc-type-name { font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+  .doc-type-desc { font-size: 11px; color: var(--text2); }
+
+  #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-size: 14px; transform: translateY(80px); opacity: 0; transition: all .3s; display: flex; align-items: center; gap: 10px; max-width: 360px; }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: var(--green); }
+  #toast.error { border-color: var(--red); }
+
+  .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-wrap { position: relative; height: 240px; }
+
+  .emp-name-col { min-width: 180px; }
+  .cargo-col { min-width: 160px; max-width: 200px; }
+
+  .doc-header-cell { writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); padding: 8px 4px !important; min-width: 36px; max-width: 36px; font-size: 9px !important; letter-spacing: 0 !important; }
+
+  .req-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .req-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+  .req-dot { width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+
+  .cargo-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; background: rgba(0,212,255,.1); color: var(--accent); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+
+  .upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 32px; text-align: center; cursor: pointer; transition: all .2s; background: var(--surface2); }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(0,212,255,.05); }
+
+  /* FILE ITEMS */
+  .file-item { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
+  .file-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .file-icon.pdf { background: rgba(239,68,68,.15); }
+  .file-icon.img { background: rgba(124,58,237,.15); }
+  .file-name { font-weight: 500; font-size: 13px; }
+  .file-meta { font-size: 11px; color: var(--text2); }
+  .format-tag { background: var(--border); color: var(--text2); padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .sync-banner { background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; font-size: 13px; display:none; }
+  .progress-wrap { display:none; margin-top:14px; }
+  .progress-label { display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; font-weight:600; }
+  .btn-danger { background: var(--red); color: #fff; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 14px; font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; }
+  .form-input:focus { border-color: var(--accent); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 900px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .main { padding: 16px; }
+    .header { padding: 0 16px; }
+    .doc-type-grid { grid-template-columns: 1fr; }
+  }
+  /* ── LOGIN ── */
+  #login-screen {
+    position:fixed;inset:0;background:var(--bg);z-index:9999;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #login-screen.hidden { display:none; }
+  .login-box {
+    background:var(--surface);border:1px solid var(--border);border-radius:16px;
+    padding:40px 44px;width:100%;max-width:400px;box-shadow:0 24px 64px rgba(0,0,0,.6);
+  }
+  .login-logo { font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--accent);margin-bottom:4px; }
+  .login-sub  { font-size:12px;color:var(--text2);margin-bottom:28px; }
+  .login-field { margin-bottom:16px; }
+  .login-label { font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;display:block; }
+  .login-input {
+    width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:11px 14px;font-size:14px;outline:none;transition:border-color .2s;
+    box-sizing:border-box;
+  }
+  .login-input:focus { border-color:var(--accent); }
+  .login-btn {
+    width:100%;padding:13px;background:var(--accent);color:#000;font-weight:700;font-size:14px;
+    border:none;border-radius:10px;cursor:pointer;margin-top:8px;transition:opacity .2s;
+    font-family:'Syne',sans-serif;
+  }
+  .login-btn:hover { opacity:.88; }
+  .login-error { color:var(--red);font-size:12px;margin-top:10px;text-align:center;min-height:18px; }
+  .login-footer { font-size:11px;color:var(--text2);text-align:center;margin-top:20px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">DOC<span style="color:var(--text)">TCU</span></div>
+    <div class="login-sub">Sistema de Controle de Documentos — Contrato 10/2026</div>
+    <div class="login-field">
+      <label class="login-label" for="login-user">Usuário</label>
+      <input class="login-input" id="login-user" type="text" placeholder="seu usuário" autocomplete="username"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+    </div>
+    <div class="login-field">
+      <label class="login-label" for="login-pass">Senha</label>
+      <input class="login-input" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Entrar</button>
+    <div class="login-error" id="login-error"></div>
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:8px;">
+      <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px;">PERFIS DE ACESSO</div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);">
+        <span style="background:rgba(0,212,255,.12);color:var(--accent);padding:2px 10px;border-radius:10px;font-weight:700;font-size:10px;">ADMIN</span>
+        Inserir, editar, sincronizar documentos
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);">
+        <span style="background:rgba(245,158,11,.12);color:var(--yellow);padding:2px 10px;border-radius:10px;font-weight:700;font-size:10px;">VIEWER</span>
+        Visualizar, filtrar e exportar relatórios
+      </div>
+    </div>
+    <div class="login-footer">Tribunal de Contas da União · T&amp;S</div>
+  </div>
+</div>
+
+<!-- VIEWER BANNER -->
+<div id="viewer-banner" style="display:none;position:sticky;top:0;z-index:999;background:rgba(245,158,11,.12);border-bottom:1px solid rgba(245,158,11,.35);padding:8px 24px;align-items:center;gap:10px;">
+  <span style="font-size:16px;">👁</span>
+  <span style="font-size:13px;font-weight:600;color:var(--yellow);">Perfil somente leitura</span>
+  <span style="font-size:12px;color:var(--text2);">Você pode visualizar, filtrar e exportar dados. Para editar ou inserir documentos, entre com uma conta Admin.</span>
+</div>
+
+<header class="header">
+  <div class="logo">DOC<span>TCU</span></div>
+  <nav class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('dashboard',this)">📊 Dashboard</button>
+    <button class="nav-tab" onclick="showPage('controle',this)">📋 Controle Docs</button>
+    <button class="nav-tab" onclick="showPage('documentos',this)">📁 Documentos</button>
+    <button class="nav-tab" onclick="showPage('colaboradores',this)">👥 Colaboradores</button>
+  </nav>
+  <div class="header-actions">
+    <span id="logged-user" style="font-size:12px;color:var(--text2);margin-right:8px;"></span>
+    <button class="btn btn-secondary btn-sm" onclick="doLogout()">Sair</button>
+    <button class="btn btn-secondary btn-sm" onclick="exportExcel()">⬇ Exportar</button>
+    <button class="btn btn-primary btn-sm" onclick="openImportModal()">⬆ Importar</button>
+    <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
+  </div>
+</header>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="modal-import">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📤 Importar Planilha</div>
+      <button class="modal-close" onclick="closeModal('import')">✕</button>
+    </div>
+    <div class="upload-zone" onclick="document.getElementById('xlsxInput').click()"
+      ondragover="event.preventDefault();this.classList.add('dragover')"
+      ondragleave="this.classList.remove('dragover')"
+      ondrop="event.preventDefault();this.classList.remove('dragover');handleXlsxDrop(event.dataTransfer.files[0])">
+      <div style="font-size:36px;margin-bottom:8px;">📊</div>
+      <div style="font-weight:700;font-size:16px;margin-bottom:6px;">Arraste a planilha ou clique para selecionar</div>
+      <div style="color:var(--text2);font-size:13px;">Formatos: .xlsx / .xls — Planilha de Analistas ou Controle Geral</div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-secondary" onclick="closeModal('import')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT DOC STATUS MODAL -->
+<div class="modal-overlay" id="modal-editdoc">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <div class="modal-title" id="editdoc-title">Documentos do Colaborador</div>
+      <button class="modal-close" onclick="closeModal('editdoc')">✕</button>
+    </div>
+    <div id="editdoc-body"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+      <button class="btn btn-secondary" onclick="closeModal('editdoc')">Fechar</button>
+      <button class="btn btn-success" onclick="saveDocStatus()">✓ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DOWNLOAD CONFIG MODAL -->
+<div class="modal-overlay" id="modal-onedrive">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header">
+      <div class="modal-title">📥 Configurar Download de Documentos</div>
+      <button class="modal-close" onclick="closeModal('onedrive')">✕</button>
+    </div>
+    <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;line-height:1.6;">
+      <strong style="color:var(--green);">ℹ Como funciona</strong><br>
+      <span style="color:var(--text2);">Ao sincronizar, os documentos são baixados individualmente ou em lote (ZIP) com nomes e subpastas organizados por cargo/colaborador. Você move o ZIP para o Google Drive, OneDrive ou qualquer pasta.</span>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Estrutura de subpastas no ZIP</label>
+      <select class="form-input" id="gd-folder-mode">
+        <option value="cargo_nome">[CARGO] / [Nome] — ex: EST / Adriano Pereira da Silva</option>
+        <option value="nome">[Nome] apenas</option>
+        <option value="uf_cargo_nome">[UF] / [CARGO] / [Nome]</option>
+      </select>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Exemplo de nome do arquivo no ZIP:</div>
+      <div id="gd-path-preview" style="font-size:12px;font-family:monospace;color:var(--accent);word-break:break-all;"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeModal('onedrive')">Fechar</button>
+      <button class="btn btn-success" onclick="saveGdConfig()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-addemp">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Novo Colaborador</div>
+      <button class="modal-close" onclick="closeModal('addemp')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nome Completo</label>
+      <input class="form-input" id="new-nome" type="text" placeholder="Nome do colaborador">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cargo</label>
+      <select class="form-input" id="new-cargo">
+        <option value="">Selecione o cargo</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">UF</label>
+        <input class="form-input" id="new-uf" type="text" placeholder="UF">
+      </div>
+      <div class="form-group">
+        <label class="form-label">CPF</label>
+        <input class="form-input" id="new-cpf" type="text" placeholder="000.000.000-00">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Data de Entrada</label>
+        <input class="form-input" id="new-entrada" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data de Saída</label>
+        <input class="form-input" id="new-saida" type="date">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nº Telefone</label>
+        <input class="form-input" id="new-telefone" type="tel" placeholder="(00) 00000-0000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tablet</label>
+        <select class="form-input" id="new-tablet" onchange="toggleTabletMotivo('new')">
+          <option value="">Não informado</option>
+          <option value="sim">Sim</option>
+          <option value="nao">Não</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" id="new-tablet-motivo-wrap" style="display:none;">
+      <label class="form-label">Motivo (sem tablet)</label>
+      <input class="form-input" id="new-tablet-motivo" type="text" placeholder="Ex: Em manutenção, Aguardando entrega...">
+    </div>
+    <div class="form-row" style="margin-top:8px;">
+      <div class="form-group">
+        <label class="form-label">Uniforme</label>
+        <select class="form-input" id="new-uniforme">
+          <option value="">Não informado</option>
+          <option value="sim">Sim — entregue</option>
+          <option value="nao">Não entregue</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Termo de Uniforme</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <button type="button" onclick="document.getElementById('new-uniforme-anexo').click()"
+            class="btn btn-secondary btn-sm" id="new-uniforme-btn">📎 Anexar termo</button>
+          <span id="new-uniforme-anexo-nome" style="font-size:11px;color:var(--text2);">Nenhum arquivo</span>
+        </div>
+        <input type="file" id="new-uniforme-anexo" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"
+          onchange="showAnexoNome('new-uniforme-anexo','new-uniforme-anexo-nome')">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-secondary" onclick="closeModal('addemp')">Cancelar</button>
+      <button class="btn btn-primary" onclick="addEmployee()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT EMPLOYEE MODAL -->
+<div class="modal-overlay" id="modal-editmemp">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Editar Colaborador</div>
+      <button class="modal-close" onclick="closeModal('editmemp')">✕</button>
+    </div>
+    <input type="hidden" id="edit-emp-id">
+    <div class="form-group">
+      <label class="form-label">Nome Completo</label>
+      <input class="form-input" id="edit-emp-nome" type="text" placeholder="Nome do colaborador">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cargo</label>
+      <select class="form-input" id="edit-emp-cargo">
+        <option value="">Selecione o cargo</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">UF</label>
+        <input class="form-input" id="edit-emp-uf" type="text" placeholder="UF" maxlength="2" style="text-transform:uppercase;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">CPF</label>
+        <input class="form-input" id="edit-emp-cpf" type="text" placeholder="000.000.000-00">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Data de Entrada</label>
+        <input class="form-input" id="edit-emp-entrada" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data de Saída</label>
+        <input class="form-input" id="edit-emp-saida" type="date">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nº Telefone</label>
+        <input class="form-input" id="edit-emp-telefone" type="tel" placeholder="(00) 00000-0000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tablet</label>
+        <select class="form-input" id="edit-emp-tablet" onchange="toggleTabletMotivo('edit-emp')">
+          <option value="">Não informado</option>
+          <option value="sim">Sim</option>
+          <option value="nao">Não</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" id="edit-emp-tablet-motivo-wrap" style="display:none;">
+      <label class="form-label">Motivo (sem tablet)</label>
+      <input class="form-input" id="edit-emp-tablet-motivo" type="text" placeholder="Ex: Em manutenção, Aguardando entrega...">
+    </div>
+    <div class="form-row" style="margin-top:8px;">
+      <div class="form-group">
+        <label class="form-label">Uniforme</label>
+        <select class="form-input" id="edit-emp-uniforme">
+          <option value="">Não informado</option>
+          <option value="sim">Sim — entregue</option>
+          <option value="nao">Não entregue</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Termo de Uniforme</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
+          <button type="button" onclick="document.getElementById('edit-emp-uniforme-anexo').click()"
+            class="btn btn-secondary btn-sm">📎 Anexar termo</button>
+          <span id="edit-emp-uniforme-anexo-nome" style="font-size:11px;color:var(--text2);">Nenhum arquivo</span>
+        </div>
+        <input type="file" id="edit-emp-uniforme-anexo" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"
+          onchange="showAnexoNome('edit-emp-uniforme-anexo','edit-emp-uniforme-anexo-nome')">
+      </div>
+    </div>
+    <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);margin-top:4px;">
+      ⚠ Ao alterar o cargo, os documentos N/A serão recalculados automaticamente. Documentos já marcados como Entregue são preservados.
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-secondary" onclick="closeModal('editmemp')">Cancelar</button>
+      <button class="btn btn-success" onclick="saveEditEmployee()">💾 Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"><span id="toast-icon">✅</span><span id="toast-msg">—</span></div>
+
+<main class="main">
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Dashboard — Conformidade Documental</div>
+      <div class="section-sub">Visão geral do status de documentos por colaborador
+        &nbsp;·&nbsp; <span id="dash-last-update" style="color:var(--text2);font-size:11px;"></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:flex-end;">
+      <div class="filter-group">
+        <div class="filter-label">Cargo</div>
+        <select id="dash-cargo" onchange="updateDashboard()">
+          <option value="">Todos os cargos</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Status</div>
+        <select id="dash-status" onchange="updateDashboard()">
+          <option value="">Todos</option>
+          <option value="ok">✅ Completo</option>
+          <option value="pendente">⚠️ Pendente</option>
+          <option value="critico">🔴 Crítico</option>
+        </select>
+      </div>
+      <button onclick="refreshDashboard()" class="btn btn-secondary btn-sm" id="btn-refresh-dash"
+        style="align-self:flex-end;gap:6px;white-space:nowrap;"
+        title="Atualizar dashboard">
+        🔄 Atualizar
+      </button>
+    </div>
+  </div>
+  <div class="stats-grid" id="dash-stats">
+    <div class="stat-card blue"><div class="stat-label">Total Colaboradores</div><div class="stat-value" id="d-total">—</div><div class="stat-sub">ativos no sistema</div></div>
+    <div class="stat-card green"><div class="stat-label">Completamente OK</div><div class="stat-value" id="d-ok">—</div><div class="stat-sub">todos os docs entregues</div></div>
+    <div class="stat-card yellow"><div class="stat-label">Pendências</div><div class="stat-value" id="d-pend">—</div><div class="stat-sub">com docs em aberto</div></div>
+    <div class="stat-card red"><div class="stat-label">Crítico</div><div class="stat-value" id="d-crit">—</div><div class="stat-sub">≥3 docs faltando</div></div>
+    <div class="stat-card orange"><div class="stat-label">Docs Faltando</div><div class="stat-value" id="d-docs">—</div><div class="stat-sub">total de pendências</div></div>
+  </div>
+  <div class="dash-grid">
+    <div class="card">
+      <div class="card-title">Conformidade por Cargo</div>
+      <div class="chart-wrap"><canvas id="chartCargo"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Distribuição de Status</div>
+      <div class="chart-wrap" style="display:flex;align-items:center;justify-content:center;">
+        <canvas id="chartDonut" style="max-height:220px;max-width:220px;"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+      <div class="card-title" style="margin:0">⚠️ Colaboradores com Pendências Críticas</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="search-wrap" style="min-width:180px;">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="dash-search-nome" placeholder="Buscar colaborador..." oninput="updateDashboard()" style="width:100%;">
+        </div>
+        <select id="dash-search-uf" onchange="updateDashboard()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 12px;font-size:12px;">
+          <option value="">Todas as UFs</option>
+        </select>
+        <select id="dash-search-cargo" onchange="updateDashboard()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 12px;font-size:12px;">
+          <option value="">Todos os cargos</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrap" style="max-height:320px;">
+      <table>
+        <thead><tr><th>Colaborador</th><th>Cargo</th><th>UF</th><th>Docs Faltando</th><th>Status</th><th></th></tr></thead>
+        <tbody id="dash-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ACOMPANHAMENTO CERTIFICAÇÕES -->
+  <div class="card" style="margin-top:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div>
+        <div class="card-title" style="margin:0;">🎓 Acompanhamento de Certificações Pendentes</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px;">Alerta a cada 30 dias para colaboradores sem certificações obrigatórias entregues</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="enviarEmailCerts()" id="btn-email-certs">✉ Enviar e-mail de cobrança</button>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px;" id="cert-alert-info"></div>
+    <div class="table-wrap" style="max-height:280px;">
+      <table>
+        <thead><tr>
+          <th>Colaborador</th><th>Cargo</th><th>Certificações Pendentes</th>
+          <th>Dias sem entrega</th><th>Próximo alerta</th><th>Ação</th>
+        </tr></thead>
+        <tbody id="dash-cert-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ACOMPANHAMENTO ENSINO SUPERIOR -->
+  <div class="card" style="margin-top:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div>
+        <div class="card-title" style="margin:0;">📚 Acompanhamento de Ensino Superior Pendente</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px;">Alerta a cada 6 meses para colaboradores sem diploma/certificado entregue</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="enviarEmailEnsino()" id="btn-email-ensino">✉ Enviar e-mail de cobrança</button>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px;" id="ensino-alert-info"></div>
+    <div class="table-wrap" style="max-height:280px;">
+      <table>
+        <thead><tr>
+          <th>Colaborador</th><th>Cargo</th><th>Situação Diploma</th>
+          <th>Dias sem entrega</th><th>Próximo alerta</th><th>Ação</th>
+        </tr></thead>
+        <tbody id="dash-ensino-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- EMAIL MODAL -->
+<div class="modal-overlay" id="modal-email">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <div class="modal-title" id="email-modal-title">✉ Rascunho de E-mail</div>
+      <button class="modal-close" onclick="closeModal('email')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Para</label>
+      <input class="form-input" id="email-para" type="text" placeholder="email@destino.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Assunto</label>
+      <input class="form-input" id="email-assunto" type="text">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Mensagem</label>
+      <textarea id="email-corpo" style="width:100%;height:260px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-size:13px;line-height:1.7;resize:vertical;outline:none;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+    </div>
+    <div style="background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--text2);margin-bottom:16px;">
+      💡 Copie o e-mail acima e envie pelo seu cliente de e-mail (Outlook, Gmail, etc.), ou clique em <strong style="color:var(--text);">"Abrir no cliente de e-mail"</strong> para abrir diretamente.
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeModal('email')">Fechar</button>
+      <button class="btn btn-secondary" onclick="copiarEmail()">📋 Copiar texto</button>
+      <button class="btn btn-primary" onclick="abrirClienteEmail()">📧 Abrir no cliente de e-mail</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONTROLE DOCUMENTOS -->
+<div id="page-controle" class="page">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Controle de Documentos Comprobatórios</div>
+      <div class="section-sub">Matriz de conformidade documental por colaborador e tipo de documento</div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-secondary btn-sm" onclick="showModal('addemp')">+ Colaborador</button>
+      <button class="btn btn-primary btn-sm" onclick="exportExcel()">⬇ Exportar</button>
+    </div>
+  </div>
+
+  <div class="req-legend">
+    <div class="req-item"><div class="req-dot ok">✓</div> Entregue</div>
+    <div class="req-item"><div class="req-dot pendente" style="background:rgba(245,158,11,.2);color:var(--yellow);">!</div> Pendente</div>
+    <div class="req-item"><div class="req-dot vazio" style="background:rgba(239,68,68,.1);color:var(--red);">✕</div> Não entregue</div>
+    <div class="req-item"><div class="req-dot na" style="background:rgba(75,85,99,.15);color:var(--gray);">—</div> Não aplicável ao cargo</div>
+  </div>
+
+  <div class="filters">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="search" placeholder="Buscar colaborador..." id="ctrl-search" oninput="renderControle()">
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Cargo</div>
+      <select id="ctrl-cargo" onchange="renderControle()">
+        <option value="">Todos os cargos</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">UF</div>
+      <select id="ctrl-uf" onchange="renderControle()">
+        <option value="">Todas as UFs</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Status</div>
+      <select id="ctrl-status" onchange="renderControle()">
+        <option value="">Todos</option>
+        <option value="ok">Completo</option>
+        <option value="pendente">Pendente</option>
+        <option value="critico">Crítico</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Ativos</div>
+      <select id="ctrl-ativo" onchange="renderControle()">
+        <option value="">Todos</option>
+        <option value="sim">Somente ativos</option>
+        <option value="nao">Desligados</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Grupo</div>
+      <select id="ctrl-grupo" onchange="renderControle()">
+        <option value="">Todos os docs</option>
+        <option value="admissao">Admissão</option>
+        <option value="qualificacao">Qualificação</option>
+        <option value="conduta">Conduta/Contrato</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="ctrl-info" style="font-size:12px;color:var(--text2);margin-bottom:12px;"></div>
+    <div class="table-wrap">
+      <table id="ctrl-table">
+        <thead id="ctrl-thead"></thead>
+        <tbody id="ctrl-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- DOCUMENTOS -->
+<div id="page-documentos" class="page">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Documentos</div>
+      <div class="section-sub">Importe, vincule e baixe arquivos comprobatórios organizados por colaborador</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button class="btn btn-secondary btn-sm" onclick="showModal('onedrive')">⚙️ Config. Download</button>
+    </div>
+  </div>
+
+  <!-- UPLOAD CARD -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">📎 Definir Tipo de Documento + Colaborador + Importar Arquivos</div>
+
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;">
+      <div class="filter-group">
+        <div class="filter-label">Tipo de Documento</div>
+        <select id="upload-doctype" style="min-width:220px;" onchange="updateUploadBadge()">
+          <option value="">Selecione o tipo</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Colaborador</div>
+        <select id="upload-colaborador" style="min-width:240px;" onchange="updateUploadBadge()">
+          <option value="">Selecione o colaborador</option>
+        </select>
+      </div>
+      <div id="upload-badge" style="display:none;padding:8px 16px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);border-radius:8px;font-weight:700;color:var(--accent);font-size:13px;"></div>
+      <button id="btn-aplicar-todos" onclick="aplicarTodosClick()" style="display:none;" class="btn btn-success btn-sm">✓ Aplicar a todos os arquivos</button>
+    </div>
+
+    <!-- Drop Zone -->
+    <div class="upload-zone" id="doc-dropzone"
+      ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDropFiles(event)"
+      onclick="document.getElementById('docFileInput').click()">
+      <div style="font-size:40px;margin-bottom:12px;">📂</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:18px;margin-bottom:8px;">Arraste os arquivos ou clique para selecionar</div>
+      <div style="color:var(--text2);font-size:14px;margin-bottom:16px;">Múltiplos arquivos simultâneos</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <span class="format-tag">PDF</span><span class="format-tag">JPG</span>
+        <span class="format-tag">PNG</span><span class="format-tag">JPEG</span><span class="format-tag">WEBP</span>
+      </div>
+    </div>
+    <input type="file" id="docFileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="handleDocFiles(this.files)">
+
+    <!-- ZIP Import -->
+    <div style="margin-top:12px;display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;">
+      <span style="font-size:22px;">📦</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:2px;">Importar ZIP</div>
+        <div style="font-size:11px;color:var(--text2);">Importe um ZIP gerado anteriormente — os arquivos serão extraídos e identificados automaticamente pelo nome.</div>
+      </div>
+      <button onclick="document.getElementById('zipFileInput').click()" class="btn btn-secondary btn-sm" style="white-space:nowrap;flex-shrink:0;">
+        📦 Importar ZIP
+      </button>
+      <input type="file" id="zipFileInput" accept=".zip" style="display:none" onchange="handleZipImport(this.files[0])">
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="doc-progress-wrap">
+      <div class="progress-label">
+        <span id="doc-prog-label">Carregando...</span>
+        <span id="doc-prog-pct" style="color:var(--accent);">0%</span>
+      </div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="doc-prog-bar" style="width:0%;background:var(--accent);"></div></div>
+    </div>
+  </div>
+
+  <!-- Sync banner -->
+  <div class="sync-banner" id="doc-sync-banner">
+    <div style="font-weight:700;color:var(--green);margin-bottom:6px;">✅ Sincronização concluída</div>
+    <div id="doc-sync-details" style="color:var(--text2);line-height:1.8;"></div>
+  </div>
+
+  <!-- Último ZIP gerado -->
+  <div id="last-zip-panel" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:28px;">📦</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:13px;margin-bottom:2px;">Último ZIP gerado</div>
+        <div style="font-size:12px;color:var(--text2);">
+          <span id="last-zip-name" style="font-family:monospace;color:var(--accent);"></span>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px;">
+          📅 <span id="last-zip-date"></span> &nbsp;·&nbsp;
+          📄 <span id="last-zip-count"></span> arquivo(s) &nbsp;·&nbsp;
+          💾 <span id="last-zip-size"></span>
+        </div>
+      </div>
+      <button onclick="rebaixarZip()" class="btn btn-secondary" style="font-weight:600;gap:6px;">
+        ⬇ Baixar novamente
+      </button>
+    </div>
+  </div>
+
+  <!-- Painel sincronizados desta sessão -->
+  <div id="sinc-session-panel" style="display:none;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.25);border-radius:12px;padding:14px 18px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:28px;">✅</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:13px;color:var(--green);margin-bottom:2px;">Documentos sincronizados nesta sessão</div>
+        <div style="font-size:12px;color:var(--text2);" id="sinc-session-info">—</div>
+      </div>
+      <button onclick="gerarZipSincronizados()" class="btn btn-success" style="font-weight:700;white-space:nowrap;">
+        📦 Gerar ZIP dos sincronizados
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters + action bar -->
+  <div class="filters">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="search" placeholder="Buscar por nome ou arquivo..." id="doc-search" oninput="renderDocs()">
+    </div>
+    <select id="doc-type-filter" onchange="renderDocs()">
+      <option value="">Todos os tipos</option>
+      <option value="pdf">PDF</option>
+      <option value="img">Imagem</option>
+    </select>
+    <select id="doc-doctype-filter" onchange="renderDocs()">
+      <option value="">Todos os documentos</option>
+    </select>
+    <select id="doc-status-filter" onchange="renderDocs()">
+      <option value="">Todos os status</option>
+      <option value="pronto">⚡ Pronto p/ sincronizar</option>
+      <option value="sem_match">⚠ Sem colaborador</option>
+      <option value="sem_tipo">📋 Sem tipo de doc</option>
+    </select>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+      <span id="docs-count-label" style="font-size:12px;color:var(--text2);"></span>
+      <button class="btn btn-danger btn-sm" onclick="limparDocs()" id="btn-limpar-docs" style="display:none;">🗑 Limpar tudo</button>
+      <button class="btn btn-secondary" onclick="gerarZip()" id="btn-baixar-zip" style="display:none;font-weight:600;">📥 ZIP pendentes</button>
+      <button class="btn btn-secondary" onclick="gerarZipSincronizados()" id="btn-zip-sincronizados" style="display:none;font-weight:700;background:rgba(16,185,129,.15);border-color:var(--green);color:var(--green);">📦 ZIP sincronizados (<span id="zip-sinc-count">0</span>)</button>
+      <button class="btn btn-success" onclick="sincronizarDocumentos()" id="btn-sincronizar" style="display:none;font-weight:700;">⬆ Sincronizar</button>
+    </div>
+  </div>
+
+  <!-- File list -->
+  <div id="doc-list"></div>
+  <div id="doc-empty" style="text-align:center;padding:60px;color:var(--text2);font-size:14px;display:none;">
+    <div style="font-size:48px;margin-bottom:12px;">📭</div>
+    Nenhum documento carregado.<br>Defina o tipo, selecione o colaborador e importe os arquivos acima.
+  </div>
+</div>
+
+<!-- COLABORADORES -->
+<div id="page-colaboradores" class="page">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Colaboradores</div>
+      <div class="section-sub">Cadastro e gestão de colaboradores</div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="showModal('addemp')">+ Novo Colaborador</button>
+  </div>
+  <div class="filters">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="search" placeholder="Buscar..." id="emp-search" oninput="renderColaboradores()">
+    </div>
+    <select id="emp-cargo-f" onchange="renderColaboradores()">
+      <option value="">Todos os cargos</option>
+    </select>
+    <select id="emp-uf-f" onchange="renderColaboradores()">
+      <option value="">Todas as UFs</option>
+    </select>
+    <select id="emp-ativo-f" onchange="renderColaboradores()">
+      <option value="">Todos</option>
+      <option value="sim">Ativos</option>
+      <option value="nao">Desligados</option>
+    </select>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Colaborador</th><th>Cargo</th><th>UF</th><th>CPF</th>
+          <th>Telefone</th><th>Tablet</th><th>Uniforme</th>
+          <th>Entrada</th><th>Saída</th><th>Status</th><th>Docs OK</th><th>Conformidade</th><th></th>
+        </tr></thead>
+        <tbody id="emp-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ================================================================
+// DOCUMENT TYPES — All required documents
+// ================================================================
+// ================================================================
+// REQUISITOS POR CARGO — fonte oficial: Especificações Técnicas TCU
+// Contrato 10/2026
+// ================================================================
+const DOC_TYPES = [
+  // ── ADMISSÃO (todos) ─────────────────────────────────────────
+  { id:'cad_terceirizado', name:'Cadastro Terceirizado',    short:'CAD',    group:'admissao',    desc:'Formulário de cadastro de terceirizado no TCU',                         required:'all' },
+  { id:'ctps',             name:'CTPS',                     short:'CTPS',   group:'admissao',    desc:'Carteira de Trabalho e Previdência Social',                             required:'all' },
+  { id:'aso',              name:'ASO',                      short:'ASO',    group:'admissao',    desc:'Atestado de Saúde Ocupacional',                                        required:'all' },
+  { id:'termo_vt',         name:'Termo Vale-Transporte',    short:'TVT',    group:'admissao',    desc:'Termo de opção ou recusa de vale-transporte',                          required:'all' },
+  // ── CONDUTA & CONTRATO (todos) ────────────────────────────────
+  { id:'termo_conduta',    name:'Termo de Conduta',         short:'TC',     group:'conduta',     desc:'Termo de conduta e responsabilidade',                                  required:'all' },
+  { id:'termo_resp_tcu',   name:'Termo Responsab. TCU',     short:'TR-TCU', group:'conduta',     desc:'Termo de responsabilidade emitido pelo TCU',                           required:'all' },
+  { id:'dec_parentesco',   name:'Decl. Não Parentesco',     short:'DNP',    group:'conduta',     desc:'Declaração de não parentesco com servidores TCU',                      required:'all' },
+  { id:'termo_maleta',     name:'Termo Maleta',             short:'TM',     group:'conduta',     desc:'Termo de responsabilidade de maleta/equipamento',                      required:'all' },
+  { id:'contrato',         name:'Contrato',                 short:'CONT',   group:'conduta',     desc:'Contrato de trabalho assinado',                                        required:'all' },
+  // ── QUALIFICAÇÃO — Ensino Superior (todos) ────────────────────
+  { id:'diploma',          name:'Diploma Ensino Superior',  short:'DIP',    group:'qualificacao',desc:'[a] Ensino superior em TI ou área afim + especialização em TI',       required:'all' },
+  // ── Experiência (todos) ───────────────────────────────────────
+  { id:'comprov_exp',      name:'Comprov. Experiência',     short:'EXP',    group:'qualificacao',desc:'Comprovante de experiência mínima conforme cargo (ver edital)',        required:'all' },
+  // ── Treinamento 40h (todos) ───────────────────────────────────
+  { id:'trein_40h',        name:'Treinamento 40h',          short:'40H',    group:'qualificacao',desc:'[e/h] Treinamento inicial de 40h — Programa de Capacitação',          required:'all' },
+
+  // ── MS-900 Fundamentals ──────────────────────────────────────
+  // BSB[b], EST[b], AE[b], AC[b] — TEL, CE, AP, supervisores, gestores: NÃO exigem
+  { id:'cert_ms_ms900',    name:'Microsoft MS-900',         short:'MS-900', group:'qualificacao',desc:'[b] Microsoft 365 Certified: Fundamentals — BSB, EST, AE, AC',        required:['BSB','EST','AE','AC'] },
+
+  // ── MD-100 ou MD-102 (aceita um ou outro) ────────────────────
+  // BSB[c], EST[c], AE[d], AC[c] — TEL, CE, AP, supervisores, gestores: NÃO exigem
+  { id:'cert_ms_md100',    name:'Microsoft MD-100',         short:'MD-100', group:'qualificacao',desc:'[c/d] MD-100 — aceita MD-100 OU MD-102 (BSB, EST, AE, AC)',           required:['BSB','EST','AE','AC'] },
+  { id:'cert_ms_md102',    name:'Microsoft MD-102',         short:'MD-102', group:'qualificacao',desc:'[c/d] MD-102 — aceita MD-100 OU MD-102 (BSB, EST, AE, AC)',           required:['BSB','EST','AE','AC'] },
+
+  // ── AZ-900 — somente AC[f] ────────────────────────────────────
+  { id:'cert_az900',       name:'Microsoft AZ-900',         short:'AZ-900', group:'qualificacao',desc:'[f] AZ-900 Conceitos básicos do Microsoft Azure — somente AC',        required:['AC'] },
+
+  // ── HDI DAST ─────────────────────────────────────────────────
+  // BSB[d]: obrigatório, sem alternativa
+  // EST[d]: DAST ou CSR
+  // AE[c]: DAST ou CSR
+  // AP[b]: DAST ou SCA ou CSR
+  // TEL: NÃO exige DAST
+  { id:'cert_hdi_dast',    name:'HDI DAST',                 short:'DAST',   group:'qualificacao',desc:'[d] HDI DAST — obrigatório BSB; EST/AE aceitam DAST ou CSR; AP aceita DAST, SCA ou CSR', required:['BSB','EST','AE','AP'] },
+
+  // ── HDI SCA ──────────────────────────────────────────────────
+  // TEL[b]: SCA ou CSR
+  // AP[b]: DAST ou SCA ou CSR
+  // EST, AE: NÃO exigem SCA (apenas DAST ou CSR)
+  { id:'cert_hdi_sca',     name:'HDI SCA',                  short:'SCA',    group:'qualificacao',desc:'[b] HDI SCA — TEL aceita SCA ou CSR; AP aceita DAST, SCA ou CSR',     required:['TEL','AP'] },
+
+  // ── HDI CSR ──────────────────────────────────────────────────
+  // TEL[b]: SCA ou CSR
+  // EST[d]: DAST ou CSR
+  // AE[c]: DAST ou CSR
+  // AP[b]: DAST ou SCA ou CSR
+  { id:'cert_hdi_csr',     name:'HDI CSR',                  short:'CSR',    group:'qualificacao',desc:'[b/d] HDI CSR — TEL/EST/AE/AP aceitam CSR como alternativa',          required:['TEL','EST','AE','AP'] },
+
+  // ── HDI SCTL — supervisores STEL, SBSB, SEST, SAE ───────────
+  // GSREM[c], SBSB[c], SEST[c], SAE[c] — SCHA e gestores: NÃO exigem SCTL
+  { id:'cert_hdi_sctl',    name:'HDI SCTL',                 short:'SCTL',   group:'qualificacao',desc:'[c] HDI SCTL — supervisores STEL, SBSB, SEST, SAE; uma das opções para GSD', required:['GSREM','SBSB','SEST','SAE','GSD'] },
+
+  // ── HDI KCS — somente GCON[d] ────────────────────────────────
+  { id:'cert_hdi_kcs',     name:'HDI KCS',                  short:'KCS',    group:'qualificacao',desc:'[d] HDI KCS (Knowledge Centered Support) — somente GCON',             required:['GCON'] },
+
+  // ── HDI SCM, SCD, XLA — opções para GSD[e] ──────────────────
+  // GSD precisa de 2 das 4: SCTL, SCM, SCD ou XLA
+  { id:'cert_hdi_scm',     name:'HDI SCM',                  short:'SCM',    group:'qualificacao',desc:'[e] HDI SCM — uma das opções para GSD (precisa de 2 entre SCTL/SCM/SCD/XLA)', required:['GSD'] },
+  { id:'cert_hdi_scd',     name:'HDI SCD',                  short:'SCD',    group:'qualificacao',desc:'[e] HDI SCD — uma das opções para GSD (precisa de 2 entre SCTL/SCM/SCD/XLA)', required:['GSD'] },
+  { id:'cert_hdi_xla',     name:'HDI XLA Foundation',       short:'XLA',    group:'qualificacao',desc:'[e] HDI XLA Foundation — uma das opções para GSD',                    required:['GSD'] },
+
+  // ── ITIL v4 ──────────────────────────────────────────────────
+  // GSREM[b], SBSB[d], SEST[d], SAE[d], SCHA[d], GSD[d]
+  { id:'cert_itil',        name:'Cert. ITIL v4',            short:'ITIL',   group:'qualificacao',desc:'[b/d] ITIL Foundations v4 — supervisores STEL/SBSB/SEST/SAE/SCHA e GSD', required:['GSREM','SBSB','SEST','SAE','SCHA','GSD'] },
+
+  // ── Cert. Montagem PC ≥20h ────────────────────────────────────
+  // BSB[g], EST[g], AE[g], CE[d], AP[e]
+  // TEL, AC, supervisores, gestores: NÃO exigem
+  { id:'cert_montagem',    name:'Cert. Montagem PC',        short:'MPC',    group:'qualificacao',desc:'[g] Curso de montagem e config. de microcomputadores (≥20h) — BSB, EST, AE, CE, AP', required:['BSB','EST','AE','CE','AP'] },
+
+  // ── Cert. Curso Redes — somente CE[f] ────────────────────────
+  { id:'cert_curso_redes', name:'Cert. Curso Redes',        short:'REDES',  group:'qualificacao',desc:'[f] Curso geral de redes e cabeamento estruturado — somente CE',      required:['CE'] },
+
+  // ── Outras Certificações (campo livre) ───────────────────────
+  { id:'outras_certs',     name:'Outras Certificações',     short:'OUTROS', group:'qualificacao',desc:'Outras certificações técnicas complementares (não obrigatório)',       required:[] },
+];
+
+// ── Requisitos oficiais por cargo ─────────────────────────────
+const CARGO_REQS = {
+  TEL: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] HDI SCA ou HDI CSR — aceita uma das duas',
+    '[c] Experiência mínima de 3 anos em suporte técnico e/ou help desk',
+    '[d] Experiência mínima de 2 anos em operação de microcomputadores com automação de escritório',
+    '[e] Treinamento inicial de 40h (Programa de Capacitação)',
+  ],
+  BSB: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Microsoft 365 Certified: Fundamentals (MS-900)',
+    '[c] MD-100 ou MD-102 — aceita um dos dois',
+    '[d] HDI DAST (obrigatório, sem alternativa para BSB)',
+    '[e] Experiência mínima de 5 anos em suporte técnico',
+    '[f] Experiência mínima de 2 anos em operação de microcomputadores com automação de escritório',
+    '[g] Curso de montagem e configuração de microcomputadores (≥20h)',
+    '[h] Treinamento inicial de 40h (Programa de Capacitação)',
+  ],
+  EST: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Microsoft 365 Certified: Fundamentals (MS-900)',
+    '[c] MD-100 ou MD-102 — aceita um dos dois',
+    '[d] HDI DAST ou HDI CSR — aceita um dos dois (NÃO exige SCA)',
+    '[e] Experiência mínima de 3 anos em suporte técnico',
+    '[f] Experiência mínima de 2 anos em operação de microcomputadores com automação de escritório',
+    '[g] Curso de montagem e configuração de microcomputadores (≥20h)',
+    '[h] Treinamento inicial de 40h (Programa de Capacitação)',
+    'Obs.: até 20% sem certificação se tiverem dobro de experiência. Até 30% se 3 estados sem local de prova.',
+  ],
+  AE: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Microsoft 365 Certified: Fundamentals (MS-900)',
+    '[c] HDI DAST ou HDI CSR — aceita um dos dois',
+    '[d] MD-100 ou MD-102 — aceita um dos dois',
+    '[e] Experiência mínima de 5 anos em suporte técnico',
+    '[f] Experiência mínima de 4 anos em operação de microcomputadores com automação de escritório',
+    '[g] Curso de montagem e configuração de microcomputadores (≥20h)',
+    '[h] Treinamento inicial de 40h (Programa de Capacitação)',
+    '[i-m] Conhecimentos básicos: Windows/Mac OS/Linux, dual boot ARM/x86, manipulação de arquivos, Pages/Numbers/Keynote, ecossistemas Apple e Android',
+  ],
+  CE: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Experiência mínima de 5 anos em suporte técnico',
+    '[c] Experiência mínima de 5 anos em operação de microcomputadores com automação de escritório',
+    '[d] Curso de montagem e configuração de microcomputadores (≥20h)',
+    '[e] Treinamento inicial de 40h (Programa de Capacitação)',
+    '[f] Curso geral de redes e de cabeamento estruturado',
+  ],
+  AC: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Microsoft 365 Certified: Fundamentals (MS-900)',
+    '[c] MD-100 ou MD-102 — aceita um dos dois',
+    '[d] Experiência mínima de 5 anos em suporte técnico',
+    '[e] Experiência mínima de 4 anos em operação de microcomputadores com automação de escritório',
+    '[f] Certificado AZ-900T00-A: Conceitos básicos do Microsoft Azure',
+    '[g] Treinamento inicial de 40h (Programa de Capacitação)',
+  ],
+  AP: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] HDI DAST ou HDI SCA ou HDI CSR — aceita qualquer uma das três',
+    '[c] Experiência mínima de 5 anos em suporte técnico',
+    '[d] Experiência mínima de 4 anos em operação de microcomputadores com automação de escritório',
+    '[e] Curso de montagem e configuração de microcomputadores (≥20h)',
+    '[f] Treinamento inicial de 40h (Programa de Capacitação)',
+  ],
+  GSREM: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Certificação ITIL Foundations v4 ou posterior',
+    '[c] HDI SCTL (Support Center Team Leader)',
+    '[d] Experiência mínima de 4 anos em suporte e/ou help desk',
+    '[e] Experiência mínima de 3 anos em supervisão de serviços de atendimento a usuários de TI/telessuporte',
+    '[f] Experiência mínima de 2 anos em operação de microcomputadores com automação de escritório',
+  ],
+  SBSB: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Experiência mínima de 4 anos em suporte e/ou help desk',
+    '[c] Experiência mínima de 3 anos em supervisão/gerência de serviços de suporte técnico de TI',
+    '[d] Certificação ITIL Foundations v4 ou posterior',
+    '[e] HDI SCTL (Support Center Team Lead)',
+  ],
+  SEST: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Experiência mínima de 4 anos em suporte e/ou help desk',
+    '[c] Experiência mínima de 3 anos em supervisão/gerência de serviços de suporte técnico de TI',
+    '[d] Certificação ITIL Foundations v4 ou posterior',
+    '[e] HDI SCTL (Support Center Team Lead)',
+  ],
+  SAE: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Experiência mínima de 4 anos em suporte e/ou help desk',
+    '[c] Experiência mínima de 3 anos em supervisão/gerência de serviços de suporte técnico de TI',
+    '[d] Certificação ITIL Foundations v4 ou posterior',
+    '[e] HDI SCTL (Support Center Team Lead)',
+  ],
+  SCHA: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Experiência mínima de 4 anos em suporte e/ou help desk',
+    '[c] Experiência mínima de 3 anos em supervisão/gerência de serviços de suporte técnico de TI',
+    '[d] Certificação ITIL Foundations v4 ou posterior',
+    'Obs.: SCHA não exige HDI SCTL (diferente dos outros supervisores)',
+  ],
+  GCON: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Experiência mínima de 4 anos em suporte técnico e/ou help desk',
+    '[c] Experiência mínima de 3 anos em supervisão/gerência de serviços de suporte técnico de TI',
+    '[d] HDI KCS (Knowledge Centered Support)',
+  ],
+  GSD: [
+    '[a] Ensino superior em TI (ou outra área + especialização em TI)',
+    '[b] Experiência mínima de 6 anos em suporte técnico e/ou help desk',
+    '[c] Experiência mínima de 5 anos em supervisão/gerência de serviços de suporte técnico de TI',
+    '[d] Certificação ITIL v4',
+    '[e] Duas das seguintes certificações HDI: SCTL, SCM, SCD ou XLA Foundation',
+  ],
+};
+// Cargo mapping — aligned with Analistas.xlsx Contrato 10_2026
+const CARGO_ALIAS = {
+  'Analista de suporte telefônico (TEL)': 'TEL',
+  'Analista de suporte (BSB)':  'BSB',
+  'Analista de suporte (EST)':  'EST',
+  'Analista de suporte especializado (AE)': 'AE',
+  'Analista de suporte especializado (AC)': 'AC',
+  'Cabeament estruturado (CE)': 'CE',
+  'Cabeamento estruturado (CE)': 'CE',
+  'Administração de parque tecnológico (AP)': 'AP',
+  'Administração de contas (AC)': 'AC',
+  'Supervisor de suporte (BSB)': 'SBSB',
+  'Supervisor de suporte (EST)': 'SEST',
+  'Supervisor de suporte (STEL)': 'GSREM',
+  'Supervisor de suporte (SAE)': 'SAE',
+  'Supervisor de suporte (SCHA)': 'SCHA',
+  'Gestor de conhecimento': 'GCON',
+  'Gestor de Service desk': 'GSD',
+  'Gestor de Service Desk': 'GSD',
+};
+
+function getCargoAlias(cargo) {
+  if (!cargo) return 'GERAL';
+  // exact match first
+  if (CARGO_ALIAS[cargo.trim()]) return CARGO_ALIAS[cargo.trim()];
+  // partial match
+  for (const [k,v] of Object.entries(CARGO_ALIAS)) {
+    if (cargo.toLowerCase().includes(k.toLowerCase())) return v;
+  }
+  const c = cargo.toUpperCase();
+  if (c.includes('TEL')) return 'TEL';
+  if (c.includes('BSB') || c.includes('BRASÍLIA') || c.includes('BRASILIA')) return 'BSB';
+  if (c.includes('EST')) return 'EST';
+  if (c.includes('AE') || c.includes('ESPECIAL')) return 'AE';
+  if (c.includes('AC') || c.includes('CONTA')) return 'AC';
+  if (c.includes('CE') || c.includes('CABEAMENTO') || c.includes('CABEAMENT')) return 'CE';
+  if (c.includes('AP') || c.includes('PARQUE')) return 'AP';
+  if (c.includes('SCHA') || c.includes('CHAMADO')) return 'SCHA';
+  if (c.includes('SAE')) return 'SAE';
+  if (c.includes('STEL') || c.includes('SREM')) return 'GSREM';
+  if (c.includes('SBSB') || c.includes('SUP') && c.includes('BSB')) return 'SBSB';
+  if (c.includes('SEST') || c.includes('SUP') && c.includes('EST')) return 'SEST';
+  if (c.includes('GCON') || c.includes('CONHECIMENTO')) return 'GCON';
+  if (c.includes('GSD') || c.includes('SERVICE DESK')) return 'GSD';
+  if (c.includes('PREPOSTO')) return 'PREP';
+  return 'GERAL';
+}
+
+// Grupos de certificações com lógica OR por cargo:
+// se qualquer um do grupo estiver 'ok', todos ficam satisfeitos.
+const OR_GROUPS = [
+  // TEL[b]: HDI SCA ou CSR — uma satisfaz a outra
+  { ids: ['cert_hdi_sca', 'cert_hdi_csr'],                         cargos: ['TEL'] },
+  // BSB[d]: apenas DAST — sem OR para BSB
+  // EST[d]: HDI DAST ou CSR — uma satisfaz a outra
+  { ids: ['cert_hdi_dast', 'cert_hdi_csr'],                        cargos: ['EST'] },
+  // AE[c]: HDI DAST ou CSR — uma satisfaz a outra
+  { ids: ['cert_hdi_dast', 'cert_hdi_csr'],                        cargos: ['AE'] },
+  // AP[b]: HDI DAST ou SCA ou CSR — qualquer uma satisfaz
+  { ids: ['cert_hdi_dast', 'cert_hdi_sca', 'cert_hdi_csr'],        cargos: ['AP'] },
+  // MD-100 ou MD-102 (BSB, EST, AE, AC) — um satisfaz o outro
+  { ids: ['cert_ms_md100', 'cert_ms_md102'],                       cargos: ['BSB','EST','AE','AC'] },
+  // GSD[e]: precisa de 2 entre SCTL, SCM, SCD, XLA
+  { ids: ['cert_hdi_sctl','cert_hdi_scm','cert_hdi_scd','cert_hdi_xla'], cargos: ['GSD'], minCount: 2 },
+];
+
+// Returns true if a given docType is effectively "satisfied" for an employee,
+// considering OR groups (one satisfies the whole group) and normal required list.
+function isDocRequired(docType, cargoAlias) {
+  if (docType.required === 'all') return true;
+  if (Array.isArray(docType.required) && docType.required.length === 0) return false;
+  if (Array.isArray(docType.required)) return docType.required.includes(cargoAlias);
+  return false;
+}
+
+// Returns true if this doc is still pending considering OR logic
+// (i.e., another doc in the same OR group is already 'ok')
+function isDocSatisfiedByOr(docId, cargoAlias, empDocs) {
+  for (const grp of OR_GROUPS) {
+    if (!grp.cargos.includes(cargoAlias)) continue;
+    if (!grp.ids.includes(docId)) continue;
+    const minCount = grp.minCount || 1;
+    const okCount = grp.ids.filter(id => empDocs[id] === 'ok').length;
+    if (okCount >= minCount) return true;
+  }
+  return false;
+}
+
+// Returns true if doc needs to be shown as pending (required AND not satisfied by OR)
+function isDocPending(docId, docType, cargoAlias, empDocs) {
+  if (!isDocRequired(docType, cargoAlias)) return false;
+  if (empDocs[docId] === 'ok') return false;
+  if (isDocSatisfiedByOr(docId, cargoAlias, empDocs)) return false;
+  return true;
+}
+
+// Returns list of pending required certs for a given employee (for dashboard/tracking)
+function getEmpPendingCerts(emp) {
+  const alias = getCargoAlias(emp.cargo);
+  return DOC_TYPES.filter(dt =>
+    dt.group === 'qualificacao' &&
+    isDocRequired(dt, alias) &&
+    emp.docs[dt.id] !== 'ok' &&
+    !isDocSatisfiedByOr(dt.id, alias, emp.docs || {})
+  ).map(dt => ({ id: dt.id, short: dt.short, name: dt.name, desc: dt.desc, status: emp.docs[dt.id] || 'null' }));
+}
+
+// Returns cargo requirements tooltip text
+function getCargoReqsTooltip(cargoAlias) {
+  const reqs = CARGO_REQS[cargoAlias];
+  if (!reqs) return 'Requisitos não mapeados para este cargo.';
+  return reqs.join('\n');
+}
+
+// ================================================================
+// STATE
+// ================================================================
+let employees = [];
+let charts = {};
+let editingEmpId = null;
+let editingDocStatus = {};
+
+// ================================================================
+// LOAD SAMPLE DATA
+// ================================================================
+// ================================================================
+// AUTH — login / logout
+// ================================================================
+// Credenciais armazenadas como hash SHA-256 simples (base64)
+// Para adicionar usuários: { user: 'nome', hash: await sha256('senha') }
+const USERS = [
+  { user: 'admin',    hash: '8b3ce0c3977ee6e8d53efeb1fb5b4f82bfb85e44b706c4eded197bd78875da67', role: 'admin',  label: 'Administrador' },
+  { user: 'priscila', hash: '7c78f4ab8a11e5bbfaa9e2ed092a9a0a08becfb80c6f994efabb7ce57bf16082', role: 'admin',  label: 'Gestão T&S' },
+  { user: 'viewer',   hash: 'b28a7ca216f5e7016d22e06d339b7571fc5c6166bb764c39a707abcd5d256392', role: 'viewer', label: 'Visualização' },
+  { user: 'relatorio',hash: '9c66dff6a6da7c93d55428b21a36d8297640312903be972d08815c18171c7125', role: 'viewer', label: 'Relatórios' },
+];
+
+let currentRole = 'viewer';
+function isAdmin() { return currentRole === 'admin'; }
+
+function applyRoleRestrictions() {
+  if (isAdmin()) return;
+  // Hide aba Documentos (upload/sincronizar)
+  const tabs = document.querySelectorAll('.nav-tab');
+  if (tabs[2]) tabs[2].style.display = 'none';
+  // Show viewer banner
+  const b = document.getElementById('viewer-banner');
+  if (b) b.style.display = 'flex';
+  // Disable write buttons
+  document.querySelectorAll('button').forEach(btn => {
+    const t = btn.textContent.trim();
+    if (['Adicionar','Sincronizar','Salvar','Importar','Exportar Excel','Remover','Limpar','Atualizar']
+        .some(k => t.includes(k)) && !t.includes('Exportar')) {
+      btn.disabled = true;
+      btn.style.opacity = '0.35';
+      btn.style.cursor = 'not-allowed';
+      btn.title = 'Sem permissão — perfil visualização';
+    }
+  });
+  // Disable all form inputs in modals
+  document.querySelectorAll('.modal input, .modal select, .modal textarea').forEach(el => {
+    el.disabled = true;
+  });
+}
+
+function buildUserBadge(user, role) {
+  const icon = role === 'admin' ? '🔑' : '👁';
+  const badge = role === 'admin'
+    ? `<span style="background:rgba(0,212,255,.15);color:var(--accent);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;margin-left:6px;">ADMIN</span>`
+    : `<span style="background:rgba(245,158,11,.15);color:var(--yellow);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;margin-left:6px;">VIEWER</span>`;
+  return `${icon} ${user}${badge}`;
+}
+
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin() {
+  const user  = document.getElementById('login-user').value.trim().toLowerCase();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!user || !pass) { errEl.textContent = 'Preencha usuário e senha.'; return; }
+  const hash  = await sha256(pass);
+  const found = USERS.find(u => u.user === user && u.hash === hash);
+  if (!found) {
+    errEl.textContent = 'Usuário ou senha incorretos.';
+    document.getElementById('login-pass').value = '';
+    return;
+  }
+  currentRole = found.role;
+  sessionStorage.setItem('tcu_logged', found.user);
+  sessionStorage.setItem('tcu_role',   found.role);
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('logged-user').innerHTML = buildUserBadge(found.user, found.role);
+  initApp();
+}
+
+function initApp() {
+  loadSampleData();
+  initFilters();
+  updateDashboard();
+  renderControle();
+  populateCargoSelect('new-cargo');
+  populateColaboradorSelect();
+  setTimeout(applyRoleRestrictions, 150);
+}
+
+function doLogout() {
+  sessionStorage.removeItem('tcu_logged');
+  sessionStorage.removeItem('tcu_role');
+  currentRole = 'viewer';
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('logged-user').innerHTML = '';
+  document.querySelectorAll('.nav-tab').forEach(t => t.style.display = '');
+  const b = document.getElementById('viewer-banner');
+  if (b) b.style.display = 'none';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = sessionStorage.getItem('tcu_logged');
+  const role  = sessionStorage.getItem('tcu_role') || 'viewer';
+  if (saved) {
+    currentRole = role;
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('logged-user').innerHTML = buildUserBadge(saved, role);
+    initApp();
+  } else {
+    setTimeout(() => document.getElementById('login-user')?.focus(), 100);
+  }
+});
+
+function loadSampleData() {
+  // ── Colaboradores definitivos — Contrato 10/2026 (Analistas.xlsx) ──
+  const raw = [
+    {nome:"Abdias Francisco Rodrigues",           cargo:"Analista de suporte especializado (AE)",    uf:"DF", cpf:"461.880.611-72", entrada:""},
+    {nome:"Adriano Pereira da Silva",             cargo:"Analista de suporte (EST)",                 uf:"GO", cpf:"017.053.471-50", entrada:""},
+    {nome:"Adriano Portela Pantoja",              cargo:"Analista de suporte (EST)",                 uf:"AP", cpf:"854.071.192-34", entrada:""},
+    {nome:"Alberto Marques das Mercês Junior",    cargo:"Analista de suporte (EST)",                 uf:"PA", cpf:"013.222.632-48", entrada:""},
+    {nome:"Alexander Duarte Rodrigues",           cargo:"Analista de suporte (EST)",                 uf:"RS", cpf:"813.677.830-20", entrada:""},
+    {nome:"Alexandre Ferreira Bottino",           cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"051.384.711-12", entrada:""},
+    {nome:"Alexsandro Barbosa de Lima",           cargo:"Analista de suporte (EST)",                 uf:"RN", cpf:"091.667.604-88", entrada:""},
+    {nome:"Ana Clara Santos Veloso",              cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"038.075.991-85", entrada:""},
+    {nome:"Brunna de Nascimento Ruas",            cargo:"Administração de parque tecnológico (AP)",  uf:"DF", cpf:"041.695.011-60", entrada:""},
+    {nome:"Caio dos Santos Silva",                cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"077.736.851-00", entrada:""},
+    {nome:"Carlos Silva Gomes",                   cargo:"Analista de suporte especializado (AE)",    uf:"DF", cpf:"852.164.451-53", entrada:""},
+    {nome:"Carolina Gonçalves Rocha",             cargo:"Analista de suporte telefônico (TEL)",      uf:"N1", cpf:"051.759.871-00", entrada:""},
+    {nome:"Cleovansostenes Abud Freire",          cargo:"Analista de suporte (EST)",                 uf:"SE", cpf:"588.473.835-87", entrada:""},
+    {nome:"Daniel Pereira Rocha Neto",            cargo:"Analista de suporte (EST)",                 uf:"PE", cpf:"087.311.294-63", entrada:""},
+    {nome:"Danilo dos Santos Nascimento",         cargo:"Analista de suporte especializado (AE)",    uf:"DF", cpf:"011.664.581-48", entrada:""},
+    {nome:"Deise Cristina Sales",                 cargo:"Analista de suporte (EST)",                 uf:"RO", cpf:"970.891.172-00", entrada:""},
+    {nome:"Diego Gonçalves de Azevedo",           cargo:"Analista de suporte (EST)",                 uf:"ES", cpf:"057.727.137-79", entrada:""},
+    {nome:"Diogenes Oliveira Dantas",             cargo:"Analista de suporte (EST)",                 uf:"CE", cpf:"787.447.093-15", entrada:""},
+    {nome:"Edilene Alves de Moraes",              cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"818.540.211-68", entrada:"2026-04-27"},
+    {nome:"Eduardo França Rocha",                 cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"014.523.921-95", entrada:""},
+    {nome:"Elimar dos Santos Vieira",             cargo:"Analista de suporte (EST)",                 uf:"PI", cpf:"642.007.283-20", entrada:""},
+    {nome:"Emerson Anseilmo de Sousa",            cargo:"Supervisor de suporte (STEL)",              uf:"DF", cpf:"049.276.781-56", entrada:""},
+    {nome:"Ezer Weizmann Suaid Levyski",          cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"710.320.021-15", entrada:"2026-04-28"},
+    {nome:"Fabio de Sousa Soares",                cargo:"Supervisor de suporte (BSB)",               uf:"DF", cpf:"046.363.901-48", entrada:""},
+    {nome:"Fábio Crystian da Costa Queiroz",      cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"049.381.681-03", entrada:"2026-04-29"},
+    {nome:"Filipe Augusto Dias Carvalho",         cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"005.373.351-70", entrada:"2026-05-05"},
+    {nome:"Franciele Cristina dos Santos",        cargo:"Analista de suporte (EST)",                 uf:"PR", cpf:"066.372.969-61", entrada:""},
+    {nome:"Francisco Rabelo de Souza",            cargo:"Analista de suporte (EST)",                 uf:"RR", cpf:"657.004.812-00", entrada:""},
+    {nome:"Fredson Magalhães da Silva",           cargo:"Supervisor de suporte (SAE)",               uf:"DF", cpf:"967.149.481-15", entrada:""},
+    {nome:"Gabriel Henrique Costa Rodrigues",     cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"039.953.661-20", entrada:""},
+    {nome:"Glauber (Pendente formulário)",        cargo:"Analista de suporte especializado (AE)",    uf:"DF", cpf:"018.745.051-10", entrada:""},
+    {nome:"Hermano Marques Fernandes",            cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"736.037.591-68", entrada:""},
+    {nome:"Hudson Alencar Saldanha de Oliveira",  cargo:"Analista de suporte (EST)",                 uf:"MG", cpf:"036.750.676-96", entrada:""},
+    {nome:"Jefferson Lucas da Conceição",         cargo:"Analista de suporte (EST)",                 uf:"AM", cpf:"595.149.142-87", entrada:""},
+    {nome:"João Paulo Santos Vitória",            cargo:"Analista de suporte (EST)",                 uf:"BA", cpf:"041.580.935-57", entrada:""},
+    {nome:"Jose Luiz Oyapock Silva Andrade",      cargo:"Gestor de conhecimento",                    uf:"DF", cpf:"990.382.181-68", entrada:""},
+    {nome:"Josue Lauro de Moraes Neves",          cargo:"Analista de suporte (EST)",                 uf:"MT", cpf:"393.837.681-34", entrada:""},
+    {nome:"Klisman Silva Sousa",                  cargo:"Analista de suporte especializado (AE)",    uf:"DF", cpf:"045.036.951-00", entrada:""},
+    {nome:"Laélia Tayane Freitas Marques Souza",  cargo:"Analista de suporte (EST)",                 uf:"MA", cpf:"008.026.692-47", entrada:""},
+    {nome:"Lucas Sena de Souza",                  cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"005.836.231-23", entrada:""},
+    {nome:"Luciana Alves dos Santos Trindade",    cargo:"Supervisor de suporte (BSB)",               uf:"DF", cpf:"992.160.781-20", entrada:""},
+    {nome:"Magno Barros Alves",                   cargo:"Analista de suporte especializado (AE)",    uf:"DF", cpf:"021.452.011-06", entrada:""},
+    {nome:"Magno Vinícius Santana Lucena",        cargo:"Analista de suporte (EST)",                 uf:"RJ", cpf:"115.917.017-75", entrada:""},
+    {nome:"Marcos Silva Araújo",                  cargo:"Cabeament estruturado (CE)",                uf:"DF", cpf:"936.792.201-97", entrada:""},
+    {nome:"Marcus Vinicius Lobato dos Santos Ayres", cargo:"Supervisor de suporte (EST)",            uf:"DF", cpf:"047.900.393-90", entrada:""},
+    {nome:"Marcus Vinicius Marra de Oliveira Pereira", cargo:"Gestor de conhecimento",              uf:"DF", cpf:"001.494.921-03", entrada:""},
+    {nome:"Matheus de Queiroz Alves",             cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"031.656.741-83", entrada:"2026-04-27"},
+    {nome:"Merilene Martins de Sousa",            cargo:"Supervisor de suporte (STEL)",              uf:"DF", cpf:"012.387.971-05", entrada:""},
+    {nome:"Michel Galeno de Souza",               cargo:"Analista de suporte especializado (AE)",    uf:"DF", cpf:"896.873.291-49", entrada:""},
+    {nome:"Michel Machado",                       cargo:"Analista de suporte (EST)",                 uf:"SC", cpf:"000.081.209-94", entrada:""},
+    {nome:"Osvaldo Mendes de Amorim Junior",      cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"642.333.673-34", entrada:"2026-04-27"},
+    {nome:"Priscila Pamplona Torres",             cargo:"Gestor de Service desk",                    uf:"DF", cpf:"720.712.811-87", entrada:""},
+    {nome:"Rafael José Pires",                    cargo:"Supervisor de suporte (SCHA)",              uf:"DF", cpf:"504.012.621-20", entrada:""},
+    {nome:"Raphael Diogenes Pereira Lima dos Santos", cargo:"Analista de suporte (EST)",            uf:"MS", cpf:"006.283.882-25", entrada:""},
+    {nome:"Rayanne Pereira da Silva",             cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"092.243.693-24", entrada:"2026-04-27"},
+    {nome:"Renato Gomes Lemos",                   cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"022.832.231-64", entrada:"2026-04-27"},
+    {nome:"Renato Rocha de Carvalho",             cargo:"Supervisor de suporte (EST)",               uf:"DF", cpf:"787.898.771-87", entrada:""},
+    {nome:"Ricardo Conceição dos Santos",         cargo:"Supervisor de suporte (SCHA)",              uf:"DF", cpf:"505.840.571-72", entrada:""},
+    {nome:"Robson Alves Mendes",                  cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"033.151.381-17", entrada:""},
+    {nome:"Rodrigo Henrique Maranhão Santana",    cargo:"Analista de suporte (EST)",                 uf:"AL", cpf:"044.561.404-88", entrada:""},
+    {nome:"Ronyellison Braga dos Santos",         cargo:"Analista de suporte (EST)",                 uf:"PB", cpf:"076.785.664-33", entrada:""},
+    {nome:"Sarah Mendes Ribeiro",                 cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"048.435.631-37", entrada:"2026-04-27"},
+    {nome:"Silmara Ferreira Costa",               cargo:"Analista de suporte (EST)",                 uf:"TO", cpf:"003.304.953-05", entrada:""},
+    {nome:"Suene da Silva Pinho",                 cargo:"Analista de suporte telefônico (TEL)",      uf:"DF", cpf:"051.036.453-51", entrada:""},
+    {nome:"Thiago da Silva Senna",                cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"055.057.591-06", entrada:"2026-05-05"},
+    {nome:"Thiago Dantas Prado",                  cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"057.517.371-80", entrada:"2026-04-27"},
+    {nome:"Thiago Soares Carneiro",               cargo:"Analista de suporte especializado (AC)",    uf:"DF", cpf:"015.621.311-76", entrada:""},
+    {nome:"Wanderson Marques da Costa",           cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"020.402.161-89", entrada:"2026-04-27"},
+    {nome:"Welton Macedo Santos Durão",           cargo:"Analista de suporte (BSB)",                 uf:"DF", cpf:"028.737.731-89", entrada:"2026-04-27"},
+    {nome:"William Cássio da Rocha Duarte",       cargo:"Analista de suporte especializado (AE)",    uf:"DF", cpf:"000.551.841-54", entrada:""},
+    {nome:"William Souza Aguiar",                 cargo:"Analista de suporte (EST)",                 uf:"AC", cpf:"874.281.482-00", entrada:""},
+  ];
+
+  employees = raw.map((e, i) => {
+    const docs  = {};
+    const alias = getCargoAlias(e.cargo);
+    // Todos os documentos iniciam como null (pendente) — dados limpos para início real
+    DOC_TYPES.forEach(dt => {
+      docs[dt.id] = isDocRequired(dt, alias) ? null : 'na';
+    });
+    return { id: i + 1, nome: e.nome, cargo: e.cargo, uf: e.uf, cpf: e.cpf, entrada: e.entrada, saida: '', telefone: '', tablet: '', tablet_motivo: '', uniforme: '', uniforme_anexo: null, uniforme_anexo_nome: '', docs };
+  });
+}
+
+
+// ================================================================
+// IMPORT XLSX
+// ================================================================
+function openImportModal() { showModal('import'); }
+function handleXlsxDrop(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type:'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
+      parseImportedSheet(rows);
+      closeModal('import');
+      toast('Planilha importada com sucesso!', 'success');
+    } catch(err) { toast('Erro ao importar: ' + err.message, 'error'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function importXlsx(input) {
+  const file = input.files[0];
+  if (file) handleXlsxDrop(file);
+  input.value = '';
+}
+
+function parseImportedSheet(rows) {
+  if (!rows || rows.length < 2) return;
+  const header = rows[0].map(h => String(h||'').trim().toLowerCase());
+  const nomeIdx = header.findIndex(h => h.includes('nome'));
+  const cargoIdx = header.findIndex(h => h.includes('cargo'));
+  const ufIdx = header.findIndex(h => h === 'uf' || h.includes('estado') || h.includes(' uf'));
+  const cpfIdx = header.findIndex(h => h.includes('cpf'));
+  const entIdx = header.findIndex(h => h.includes('entrada') || h.includes('admiss'));
+  const saidaIdx = header.findIndex(h => h.includes('saída') || h.includes('saida') || h.includes('rescis'));
+
+  const newEmps = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row[nomeIdx]) continue;
+    const nome = String(row[nomeIdx]||'').trim();
+    if (!nome) continue;
+    const cargo = cargoIdx >= 0 ? String(row[cargoIdx]||'').trim() : '';
+    const uf = ufIdx >= 0 ? String(row[ufIdx]||'').trim() : '';
+    const cpf = cpfIdx >= 0 ? String(row[cpfIdx]||'').trim() : '';
+    const entrada = entIdx >= 0 && row[entIdx] ? formatDateVal(row[entIdx]) : '';
+    const saida = saidaIdx >= 0 && row[saidaIdx] ? formatDateVal(row[saidaIdx]) : '';
+
+    // Check if employee already exists
+    const existing = employees.find(e => normalizeStr(e.nome) === normalizeStr(nome));
+    if (existing) {
+      if (cargo) existing.cargo = cargo;
+      if (uf) existing.uf = uf;
+      if (cpf) existing.cpf = cpf;
+      if (entrada) existing.entrada = entrada;
+      if (saida) existing.saida = saida;
+    } else {
+      const docs = {};
+      const alias = getCargoAlias(cargo);
+      DOC_TYPES.forEach(dt => {
+        docs[dt.id] = isDocRequired(dt, alias) ? null : 'na';
+      });
+      newEmps.push({ id: Date.now() + r, nome, cargo, uf, cpf, entrada, saida, docs });
+    }
+  }
+  employees.push(...newEmps);
+  initFilters();
+  updateDashboard();
+  renderControle();
+  renderColaboradores();
+  toast(`${newEmps.length} novos colaboradores importados, ${rows.length-1-newEmps.length} atualizados.`, 'success');
+}
+
+function normalizeStr(s) { return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
+function formatDateVal(v) {
+  if (!v) return '';
+  if (v instanceof Date) return isNaN(v) ? '' : v.toISOString().split('T')[0];
+  if (typeof v === 'number') { const d = new Date(Math.round((v-25569)*86400*1000)); return d.toISOString().split('T')[0]; }
+  if (typeof v === 'string') return v.includes('T') ? v.split('T')[0] : v.substring(0,10);
+  return String(v);
+}
+
+// ================================================================
+// INIT FILTERS
+// ================================================================
+function initFilters() {
+  const cargos = [...new Set(employees.map(e => e.cargo).filter(Boolean))].sort();
+  const ufs = [...new Set(employees.map(e => e.uf).filter(Boolean))].sort();
+
+  ['ctrl-cargo','emp-cargo-f','dash-cargo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const val = el.value;
+    el.innerHTML = `<option value="">Todos os cargos</option>`;
+    cargos.forEach(c => el.innerHTML += `<option value="${c}">${shortCargo(c)}</option>`);
+    if (val) el.value = val;
+  });
+
+  ['ctrl-uf','emp-uf-f'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '<option value="">Todas as UFs</option>';
+    ufs.forEach(u => el.innerHTML += `<option value="${u}">${u}</option>`);
+  });
+
+}
+
+function shortCargo(c) {
+  if (!c) return '';
+  const m = c.match(/\(([^)]+)\)/);
+  if (m) return m[1];
+  return c.length > 35 ? c.substring(0,33)+'…' : c;
+}
+
+function populateCargoSelect(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '<option value="">Selecione o cargo</option>';
+  const cargos = [...new Set(employees.map(e => e.cargo).filter(Boolean))].sort();
+  if (cargos.length === 0) {
+    const defaults = Object.keys(CARGO_ALIAS).slice(0,10);
+    defaults.forEach(c => el.innerHTML += `<option value="${c}">${c}</option>`);
+  } else {
+    cargos.forEach(c => el.innerHTML += `<option value="${c}">${c}</option>`);
+  }
+}
+
+// ================================================================
+// EMPLOYEE STATUS HELPERS
+// ================================================================
+function getEmpDocStatus(emp) {
+  const alias = getCargoAlias(emp.cargo);
+  let ok=0, pend=0, missing=0, total=0;
+  DOC_TYPES.forEach(dt => {
+    if (!isDocRequired(dt, alias)) return;
+    // If OR group satisfies this doc, count as ok
+    if (isDocSatisfiedByOr(dt.id, alias, emp.docs || {})) { ok++; total++; return; }
+    total++;
+    const s = emp.docs?.[dt.id];
+    if (s === 'ok') ok++;
+    else if (s === 'pendente') pend++;
+    else missing++;
+  });
+  return { ok, pend, missing, total, pct: total > 0 ? Math.round(ok/total*100) : 0 };
+}
+
+function getStatusLabel(emp) {
+  const s = getEmpDocStatus(emp);
+  if (s.missing >= 3) return 'critico';
+  if (s.missing > 0 || s.pend > 0) return 'pendente';
+  return 'ok';
+}
+
+function refreshDashboard() {
+  const btn = document.getElementById('btn-refresh-dash');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Atualizando…';
+  }
+  initFilters();
+  updateDashboard();
+  renderControle();
+  setTimeout(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Atualizar'; }
+    toast('Dashboard atualizado!', 'success');
+  }, 300);
+}
+
+
+function updateDashboard() {
+  if (!employees.length) return;
+  const cargoF  = document.getElementById('dash-cargo')?.value  || '';
+  const statusF = document.getElementById('dash-status')?.value || '';
+
+  let emps = employees.filter(e => {
+    if (cargoF  && e.cargo !== cargoF) return false;
+    if (statusF && getStatusLabel(e) !== statusF) return false;
+    return true;
+  });
+
+  const total        = emps.length;
+  const ok           = emps.filter(e => getStatusLabel(e) === 'ok').length;
+  const pend         = emps.filter(e => getStatusLabel(e) === 'pendente').length;
+  const crit         = emps.filter(e => getStatusLabel(e) === 'critico').length;
+  const totalMissing = emps.reduce((acc,e) => acc + getEmpDocStatus(e).missing, 0);
+
+  // ── KPI Cards (always update first) ──────────────────────────
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('d-total', total);
+  setEl('d-ok',    ok);
+  setEl('d-pend',  pend);
+  setEl('d-crit',  crit);
+  setEl('d-docs',  totalMissing);
+
+  // ── Charts (wrapped so errors don't block the rest) ──────────
+  try {
+    const cargoGroups = {};
+    emps.forEach(e => {
+      const c = shortCargo(e.cargo) || 'N/A';
+      if (!cargoGroups[c]) cargoGroups[c] = {ok:0,pend:0,crit:0};
+      cargoGroups[c][getStatusLabel(e)]++;
+    });
+    const labels = Object.keys(cargoGroups);
+    destroyChart('chartCargo');
+    const cvsCargo = document.getElementById('chartCargo');
+    if (cvsCargo) {
+      charts.chartCargo = new Chart(cvsCargo, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {label:'Completo', data:labels.map(l=>cargoGroups[l].ok),   backgroundColor:'rgba(16,185,129,.7)', borderRadius:4},
+            {label:'Pendente', data:labels.map(l=>cargoGroups[l].pend), backgroundColor:'rgba(245,158,11,.7)', borderRadius:4},
+            {label:'Crítico',  data:labels.map(l=>cargoGroups[l].crit), backgroundColor:'rgba(239,68,68,.7)',  borderRadius:4},
+          ]
+        },
+        options: {
+          indexAxis:'y', responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},
+          scales:{
+            x:{ticks:{color:'#94a3b8'},grid:{color:'#1e2d45'}},
+            y:{ticks:{color:'#94a3b8',font:{size:10}},grid:{color:'#1e2d45'}}
+          }
+        }
+      });
+    }
+  } catch(e) { console.warn('Chart cargo error:', e); }
+
+  try {
+    destroyChart('chartDonut');
+    const cvsDonut = document.getElementById('chartDonut');
+    if (cvsDonut) {
+      charts.chartDonut = new Chart(cvsDonut, {
+        type: 'doughnut',
+        data: {
+          labels: ['Completo','Pendente','Crítico'],
+          datasets:[{
+            data:[ok,pend,crit],
+            backgroundColor:['rgba(16,185,129,.8)','rgba(245,158,11,.8)','rgba(239,68,68,.8)'],
+            borderColor:['#10b981','#f59e0b','#ef4444'],
+            borderWidth:1
+          }]
+        },
+        options:{
+          responsive:true, maintainAspectRatio:false, cutout:'65%',
+          plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}}
+        }
+      });
+    }
+  } catch(e) { console.warn('Chart donut error:', e); }
+
+  // ── Populate UF and Cargo search selects ─────────────────────
+  const ufSel    = document.getElementById('dash-search-uf');
+  const cargoSel = document.getElementById('dash-search-cargo');
+  if (ufSel && ufSel.options.length <= 1) {
+    const ufs = [...new Set(employees.map(e=>e.uf).filter(Boolean))].sort();
+    ufs.forEach(u => { const o = document.createElement('option'); o.value=u; o.textContent=u; ufSel.appendChild(o); });
+  }
+  if (cargoSel && cargoSel.options.length <= 1) {
+    const cargos = [...new Set(employees.map(e=>e.cargo).filter(Boolean))].sort();
+    cargos.forEach(cargo => { const o = document.createElement('option'); o.value=cargo; o.textContent=shortCargo(cargo); cargoSel.appendChild(o); });
+  }
+
+  // ── Critical table search filters ────────────────────────────
+  const searchNome  = (document.getElementById('dash-search-nome')?.value || '').toLowerCase();
+  const searchUf    = document.getElementById('dash-search-uf')?.value    || '';
+  const searchCargo = document.getElementById('dash-search-cargo')?.value || '';
+
+  const critical = emps
+    .filter(e => {
+      if (getStatusLabel(e) === 'ok') return false;
+      if (searchNome  && !e.nome.toLowerCase().includes(searchNome))   return false;
+      if (searchUf    && e.uf !== searchUf)                              return false;
+      if (searchCargo && e.cargo !== searchCargo)                        return false;
+      return true;
+    })
+    .sort((a,b) => getEmpDocStatus(b).missing - getEmpDocStatus(a).missing)
+    .slice(0, 50);
+
+  const dashTable = document.getElementById('dash-table');
+  if (dashTable) {
+    dashTable.innerHTML = critical.length === 0
+      ? '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:24px;">✅ Todos os colaboradores com documentação completa</td></tr>'
+      : critical.map(e => {
+          const lbl     = getStatusLabel(e);
+          const missing = DOC_TYPES
+            .filter(dt => isDocRequired(dt, getCargoAlias(e.cargo)) && e.docs[dt.id] !== 'ok')
+            .map(dt => dt.short).join(', ');
+          return `<tr>
+            <td><strong>${e.nome}</strong></td>
+            <td style="font-size:11px;color:var(--text2);">${shortCargo(e.cargo)}</td>
+            <td>${e.uf||'—'}</td>
+            <td style="font-size:11px;color:var(--yellow);">${missing}</td>
+            <td><span class="badge ${lbl}">${lbl==='ok'?'✅ Completo':lbl==='pendente'?'⚠️ Pendente':'🔴 Crítico'}</span></td>
+            <td><button class="btn btn-secondary btn-sm" onclick="composeEmailPendencias(${e.id})" title="Enviar e-mail de pendências">✉</button></td>
+          </tr>`;
+        }).join('');
+  }
+
+  // ── Tracking panels ──────────────────────────────────────────
+  try { updateCertTracking();  } catch(e) { console.warn('Cert tracking error:', e); }
+  try { updateEnsinoTracking();} catch(e) { console.warn('Ensino tracking error:', e); }
+
+  // ── Last update timestamp ─────────────────────────────────────
+  const tsEl = document.getElementById('dash-last-update');
+  if (tsEl) {
+    const now = new Date();
+    tsEl.textContent = `Atualizado às ${now.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+  }
+}
+
+// ================================================================
+// ACOMPANHAMENTO CERTIFICAÇÕES (alerta a cada 30 dias)
+// ================================================================
+const CERT_DOC_IDS = ['cert_hdi_dast','cert_hdi_csr','cert_hdi_sca','cert_hdi_sctl','cert_hdi_scm',
+  'cert_ms_md100','cert_ms_md102','cert_ms_ms900','cert_itil','cert_montagem','cert_curso_redes','outras_certs'];
+const CERT_ALERT_DAYS = 30;
+const ENSINO_ALERT_DAYS = 180; // 6 meses
+
+// localStorage keys for last alert date per employee
+function certAlertKey(empId, tipo)  { return `alert_${tipo}_${empId}`; }
+
+function daysSince(isoDate) {
+  if (!isoDate) return null;
+  return Math.floor((Date.now() - new Date(isoDate).getTime()) / 86400000);
+}
+
+function updateCertTracking() {
+  const tbody = document.getElementById('dash-cert-table');
+  const info  = document.getElementById('cert-alert-info');
+  if (!tbody) return;
+
+  const hoje = new Date().toISOString().split('T')[0];
+  const rows = [];
+
+  employees.forEach(emp => {
+    if (emp.saida) return; // only active
+    const alias = getCargoAlias(emp.cargo);
+    const certsPendentes = CERT_DOC_IDS.filter(id => {
+      const dt = DOC_TYPES.find(d => d.id === id);
+      return dt && isDocRequired(dt, alias) && emp.docs[id] !== 'ok';
+    }).map(id => DOC_TYPES.find(d => d.id === id)?.short).filter(Boolean);
+
+    if (certsPendentes.length === 0) return;
+
+    const key          = certAlertKey(emp.id, 'cert');
+    const lastAlert    = localStorage.getItem(key);
+    const diasDesde    = lastAlert ? daysSince(lastAlert) : daysSince(emp.entrada) ?? 999;
+    const diasRestantes = Math.max(0, CERT_ALERT_DAYS - diasDesde);
+    const vencido      = diasDesde >= CERT_ALERT_DAYS;
+
+    rows.push({ emp, certsPendentes, diasDesde, diasRestantes, vencido, key, lastAlert });
+  });
+
+  if (info) {
+    const venc = rows.filter(r => r.vencido).length;
+    info.innerHTML = venc > 0
+      ? `<span style="color:var(--red);font-weight:600;">🔴 ${venc} colaborador(es) com alerta vencido — clique em "Enviar e-mail" para cobrar</span>`
+      : rows.length === 0
+        ? '<span style="color:var(--green);">✅ Todas as certificações obrigatórias entregues</span>'
+        : `<span style="color:var(--yellow);">⚠ ${rows.length} colaborador(es) com certificações pendentes — próximos alertas programados</span>`;
+  }
+
+  const btnEmail = document.getElementById('btn-email-certs');
+  if (btnEmail) btnEmail.style.opacity = rows.filter(r=>r.vencido).length > 0 ? '1' : '0.5';
+
+  tbody.innerHTML = rows.length === 0
+    ? '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px;">✅ Nenhuma certificação pendente</td></tr>'
+    : rows.map(r => {
+      const alias    = getCargoAlias(r.emp.cargo);
+      const pendDocs = getEmpPendingCerts(r.emp);
+      const corDias  = r.vencido ? 'var(--red)' : r.diasRestantes <= 7 ? 'var(--yellow)' : 'var(--text2)';
+      const certList = pendDocs.map(d =>
+        `<span style="display:inline-flex;align-items:center;gap:4px;background:${d.status==='pendente'?'rgba(245,158,11,.15)':'rgba(239,68,68,.12)'};color:${d.status==='pendente'?'var(--yellow)':'var(--red)'};padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;margin:2px;" title="${d.desc}">${d.short}${d.status==='pendente'?' ⏳':' ✗'}</span>`
+      ).join('');
+      const reqsText = (CARGO_REQS[alias] || []).map((r,i)=>`${i+1}. ${r}`).join('\n');
+      const reqsBtn  = reqsText ? `<button onclick="mostrarReqsCargo(${r.emp.id})" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;margin-left:4px;" title="Ver requisitos do cargo">ⓘ</button>` : '';
+      return `<tr>
+        <td>
+          <strong>${r.emp.nome}</strong>${reqsBtn}
+        </td>
+        <td style="font-size:11px;color:var(--text2);">${shortCargo(r.emp.cargo)}</td>
+        <td style="line-height:1.8;">${certList || '—'}</td>
+        <td style="font-weight:700;color:${corDias};">${r.diasDesde === 999 ? '—' : r.diasDesde + 'd'}</td>
+        <td style="font-size:11px;color:${corDias};">${r.vencido
+          ? '<span style="color:var(--red);font-weight:700;">⚠ Vencido</span>'
+          : `em ${r.diasRestantes}d`}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="composeEmailCert(${r.emp.id})" title="Redigir e-mail">✉</button>
+          <button class="btn btn-secondary btn-sm" style="margin-left:4px;" onclick="marcarAlertadoCert(${r.emp.id},'cert')" title="Marcar como alertado hoje">✓</button>
+        </td>
+      </tr>`;
+    }).join('');
+}
+
+// ================================================================
+// ACOMPANHAMENTO ENSINO SUPERIOR (alerta a cada 6 meses)
+// ================================================================
+function updateEnsinoTracking() {
+  const tbody = document.getElementById('dash-ensino-table');
+  const info  = document.getElementById('ensino-alert-info');
+  if (!tbody) return;
+
+  const rows = [];
+
+  employees.forEach(emp => {
+    if (emp.saida) return;
+    const alias = getCargoAlias(emp.cargo);
+    const dt    = DOC_TYPES.find(d => d.id === 'diploma');
+    if (!dt || !isDocRequired(dt, alias)) return;
+    if (emp.docs['diploma'] === 'ok') return;
+
+    const key           = certAlertKey(emp.id, 'ensino');
+    const lastAlert     = localStorage.getItem(key);
+    const diasDesde     = lastAlert ? daysSince(lastAlert) : daysSince(emp.entrada) ?? 999;
+    const diasRestantes = Math.max(0, ENSINO_ALERT_DAYS - diasDesde);
+    const vencido       = diasDesde >= ENSINO_ALERT_DAYS;
+
+    rows.push({ emp, diasDesde, diasRestantes, vencido, key, lastAlert });
+  });
+
+  if (info) {
+    const venc = rows.filter(r => r.vencido).length;
+    info.innerHTML = venc > 0
+      ? `<span style="color:var(--red);font-weight:600;">🔴 ${venc} colaborador(es) com alerta de diploma vencido</span>`
+      : rows.length === 0
+        ? '<span style="color:var(--green);">✅ Todos os colaboradores com diploma entregue</span>'
+        : `<span style="color:var(--yellow);">⚠ ${rows.length} colaborador(es) com diploma pendente</span>`;
+  }
+
+  const btnEmail = document.getElementById('btn-email-ensino');
+  if (btnEmail) btnEmail.style.opacity = rows.filter(r=>r.vencido).length > 0 ? '1' : '0.5';
+
+  tbody.innerHTML = rows.length === 0
+    ? '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px;">✅ Todos os diplomas entregues</td></tr>'
+    : rows.map(r => {
+      const corDias = r.vencido ? 'var(--red)' : r.diasRestantes <= 14 ? 'var(--yellow)' : 'var(--text2)';
+      return `<tr>
+        <td><strong>${r.emp.nome}</strong></td>
+        <td style="font-size:11px;color:var(--text2);">${shortCargo(r.emp.cargo)}</td>
+        <td><span class="badge critico">Diploma não entregue</span></td>
+        <td style="font-weight:700;color:${corDias};">${r.diasDesde === 999 ? '—' : r.diasDesde + 'd'}</td>
+        <td style="font-size:11px;color:${corDias};">${r.vencido
+          ? '<span style="color:var(--red);font-weight:700;">⚠ Vencido</span>'
+          : `em ${r.diasRestantes}d`}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="composeEmailEnsino(${r.emp.id})" title="Enviar e-mail individual">✉</button>
+          <button class="btn btn-secondary btn-sm" style="margin-left:4px;" onclick="marcarAlertadoCert(${r.emp.id},'ensino')" title="Marcar como alertado hoje">✓ Alertado</button>
+        </td>
+      </tr>`;
+    }).join('');
+}
+
+function marcarAlertadoCert(empId, tipo) {
+  const hoje = new Date().toISOString().split('T')[0];
+  localStorage.setItem(certAlertKey(empId, tipo), hoje);
+  updateCertTracking();
+  updateEnsinoTracking();
+  toast('Marcado como alertado hoje. Próximo aviso em ' + (tipo === 'cert' ? '30' : '180') + ' dias.', 'success');
+}
+
+function mostrarReqsCargo(empId) {
+  const emp   = employees.find(e => e.id === empId);
+  if (!emp) return;
+  const alias = getCargoAlias(emp.cargo);
+  const reqs  = CARGO_REQS[alias] || [];
+  if (reqs.length === 0) { toast('Requisitos não mapeados para este cargo.', 'error'); return; }
+  const lista = reqs.map((r,i) => `${i+1}. ${r}`).join('\n');
+  alert(`Requisitos do cargo — ${emp.cargo}\n(${emp.nome})\n\n${lista}`);
+}
+
+function composeEmailPendencias(empId) {
+  const emp = employees.find(e => e.id === empId);
+  if (!emp) return;
+
+  const alias   = getCargoAlias(emp.cargo);
+  const missing = DOC_TYPES.filter(dt => isDocRequired(dt, alias) && emp.docs[dt.id] !== 'ok');
+
+  const listaItens = missing.map(dt => `* ${dt.name} (${dt.short})`).join('\n');
+
+  document.getElementById('email-modal-title').textContent = '✉ Solicitação de Documentos Pendentes';
+  document.getElementById('email-para').value    = emp.email || '';
+  document.getElementById('email-assunto').value = 'Solicitação de documentos pendentes';
+  document.getElementById('email-corpo').value   =
+`Prezado(a) ${emp.nome},
+
+Após conferência da documentação entregue, verificamos que alguns documentos listados abaixo não foram anexados ou podem ter passado despercebidos:
+
+Documentação pendente:
+
+${listaItens}
+
+Solicitamos, por gentileza, que sejam incluídos no formulário indicado os documentos faltantes.
+
+Observações importantes:
+
+* Ao anexar, utilize a seguinte nomenclatura: tipo do documento + nome do colaborador (exemplo: ASO – João Pedro).
+* Favor anexar um documento por arquivo, para facilitar a conferência e organização.
+
+Forms: Solicitação de documentos pendentes – Preencher o formulário
+https://forms.office.com/r/7jxhLh7AH4
+
+Agradecemos antecipadamente pela atenção e colaboração.`;
+
+  showModal('email');
+}
+
+// ================================================================
+// EMAIL COMPOSE
+// ================================================================
+let _emailModoAtual = '';
+
+function composeEmailCert(empId) {
+  const emp   = employees.find(e => e.id === empId);
+  if (!emp) return;
+  const alias = getCargoAlias(emp.cargo);
+  const certs = CERT_DOC_IDS
+    .filter(id => { const dt = DOC_TYPES.find(d=>d.id===id); return dt && isDocRequired(dt,alias) && emp.docs[id] !== 'ok'; })
+    .map(id => DOC_TYPES.find(d=>d.id===id)?.name).filter(Boolean);
+
+  _emailModoAtual = 'cert_' + empId;
+  document.getElementById('email-modal-title').textContent = '✉ E-mail — Certificações Pendentes';
+  document.getElementById('email-para').value    = emp.email || '';
+  document.getElementById('email-assunto').value = `Acompanhamento de Certificações — ${emp.nome}`;
+  document.getElementById('email-corpo').value   =
+`Prezado(a) ${emp.nome.split(' ')[0]},
+
+Espero que esteja bem. Entramos em contato para verificar o andamento das seguintes certificações obrigatórias para o seu cargo (${shortCargo(emp.cargo)}), que ainda constam como pendentes em nosso sistema:
+
+${certs.map((c,i) => `  ${i+1}. ${c}`).join('\n')}
+
+Solicitamos gentilmente que nos informe sobre o status de obtenção dessas certificações e, quando disponível, encaminhe os comprovantes para registro na nossa base de controle documental.
+
+Caso já possua alguma dessas certificações, por favor envie o comprovante para que possamos atualizar o cadastro.
+
+Agradecemos a atenção e ficamos à disposição para qualquer dúvida.
+
+Atenciosamente,
+Gestão de Contratos — T&S / TCU`;
+
+  showModal('email');
+}
+
+function composeEmailEnsino(empId) {
+  const emp = employees.find(e => e.id === empId);
+  if (!emp) return;
+
+  _emailModoAtual = 'ensino_' + empId;
+  document.getElementById('email-modal-title').textContent = '✉ E-mail — Diploma de Ensino Superior';
+  document.getElementById('email-para').value    = emp.email || '';
+  document.getElementById('email-assunto').value = `Acompanhamento — Diploma de Ensino Superior — ${emp.nome}`;
+  document.getElementById('email-corpo').value   =
+`Prezado(a) ${emp.nome.split(' ')[0]},
+
+Espero que esteja bem. Passamos para verificar o andamento da entrega do diploma de ensino superior, que é requisito contratual para o cargo de ${shortCargo(emp.cargo)} e ainda consta como pendente em nosso controle documental.
+
+Solicitamos gentilmente que nos informe sobre o status da obtenção/regularização do diploma e, quando possível, encaminhe o comprovante para registro em nosso sistema.
+
+Reforçamos que o prazo para regularização desta pendência está em acompanhamento pela gestão do contrato.
+
+Agradecemos a atenção e ficamos à disposição para esclarecer quaisquer dúvidas.
+
+Atenciosamente,
+Gestão de Contratos — T&S / TCU`;
+
+  showModal('email');
+}
+
+function enviarEmailCerts() {
+  // Compose bulk email for all vencidos
+  const vencidos = employees.filter(emp => {
+    if (emp.saida) return false;
+    const alias = getCargoAlias(emp.cargo);
+    const temCertPend = CERT_DOC_IDS.some(id => {
+      const dt = DOC_TYPES.find(d=>d.id===id);
+      return dt && isDocRequired(dt,alias) && emp.docs[id] !== 'ok';
+    });
+    if (!temCertPend) return false;
+    const key = certAlertKey(emp.id, 'cert');
+    const last = localStorage.getItem(key);
+    const dias = last ? daysSince(last) : daysSince(emp.entrada) ?? 999;
+    return dias >= CERT_ALERT_DAYS;
+  });
+  if (vencidos.length === 0) { toast('Nenhum alerta vencido no momento.', 'error'); return; }
+
+  const lista = vencidos.map(emp => {
+    const alias = getCargoAlias(emp.cargo);
+    const certs = CERT_DOC_IDS
+      .filter(id => { const dt=DOC_TYPES.find(d=>d.id===id); return dt&&isDocRequired(dt,alias)&&emp.docs[id]!=='ok'; })
+      .map(id => DOC_TYPES.find(d=>d.id===id)?.short).join(', ');
+    return `• ${emp.nome} (${shortCargo(emp.cargo)}): ${certs}`;
+  }).join('\n');
+
+  _emailModoAtual = 'cert_bulk';
+  document.getElementById('email-modal-title').textContent = '✉ E-mail em Lote — Certificações Pendentes';
+  document.getElementById('email-para').value    = '';
+  document.getElementById('email-assunto').value = `Relatório de Certificações Pendentes — ${new Date().toLocaleDateString('pt-BR')}`;
+  document.getElementById('email-corpo').value   =
+`Prezados,
+
+Segue o relatório de colaboradores com certificações obrigatórias pendentes, cujo prazo de acompanhamento (${CERT_ALERT_DAYS} dias) foi atingido:
+
+${lista}
+
+Solicitamos que seja verificado junto a cada colaborador o status de obtenção das referidas certificações e que os comprovantes sejam encaminhados para atualização do controle documental.
+
+Atenciosamente,
+Gestão de Contratos — T&S / TCU`;
+
+  showModal('email');
+}
+
+function enviarEmailEnsino() {
+  const vencidos = employees.filter(emp => {
+    if (emp.saida) return false;
+    const alias = getCargoAlias(emp.cargo);
+    const dt = DOC_TYPES.find(d=>d.id==='diploma');
+    if (!dt || !isDocRequired(dt,alias) || emp.docs['diploma']==='ok') return false;
+    const key = certAlertKey(emp.id,'ensino');
+    const last = localStorage.getItem(key);
+    const dias = last ? daysSince(last) : daysSince(emp.entrada) ?? 999;
+    return dias >= ENSINO_ALERT_DAYS;
+  });
+  if (vencidos.length === 0) { toast('Nenhum alerta de diploma vencido no momento.', 'error'); return; }
+
+  const lista = vencidos.map(emp => `• ${emp.nome} (${shortCargo(emp.cargo)})`).join('\n');
+
+  _emailModoAtual = 'ensino_bulk';
+  document.getElementById('email-modal-title').textContent = '✉ E-mail em Lote — Diploma Pendente';
+  document.getElementById('email-para').value    = '';
+  document.getElementById('email-assunto').value = `Acompanhamento — Diploma de Ensino Superior Pendente — ${new Date().toLocaleDateString('pt-BR')}`;
+  document.getElementById('email-corpo').value   =
+`Prezados,
+
+Segue relação de colaboradores com diploma de ensino superior pendente, cujo prazo de acompanhamento (${Math.round(ENSINO_ALERT_DAYS/30)} meses) foi atingido:
+
+${lista}
+
+Solicitamos verificação do andamento da regularização e envio dos comprovantes para atualização do sistema.
+
+Atenciosamente,
+Gestão de Contratos — T&S / TCU`;
+
+  showModal('email');
+}
+
+function copiarEmail() {
+  const corpo   = document.getElementById('email-corpo')?.value || '';
+  const assunto = document.getElementById('email-assunto')?.value || '';
+  const full    = `Assunto: ${assunto}\n\n${corpo}`;
+  navigator.clipboard?.writeText(full).then(() => toast('E-mail copiado!', 'success'))
+    .catch(() => { document.getElementById('email-corpo').select(); document.execCommand('copy'); toast('E-mail copiado!', 'success'); });
+}
+
+function abrirClienteEmail() {
+  const para    = encodeURIComponent(document.getElementById('email-para')?.value || '');
+  const assunto = encodeURIComponent(document.getElementById('email-assunto')?.value || '');
+  const corpo   = encodeURIComponent(document.getElementById('email-corpo')?.value || '');
+  window.open(`mailto:${para}?subject=${assunto}&body=${corpo}`, '_blank');
+}
+
+
+
+// ================================================================
+// CONTROLE DOCUMENTOS
+// ================================================================
+function renderControle() {
+  if (!employees.length) return;
+  const search = document.getElementById('ctrl-search')?.value?.toLowerCase()||'';
+  const cargoF = document.getElementById('ctrl-cargo')?.value||'';
+  const ufF = document.getElementById('ctrl-uf')?.value||'';
+  const statusF = document.getElementById('ctrl-status')?.value||'';
+  const ativoF = document.getElementById('ctrl-ativo')?.value||'';
+  const grupoF = document.getElementById('ctrl-grupo')?.value||'';
+
+  let visibleDocs = DOC_TYPES;
+  if (grupoF) visibleDocs = DOC_TYPES.filter(d => d.group === grupoF);
+
+  let emps = employees.filter(e => {
+    if (search && !e.nome.toLowerCase().includes(search)) return false;
+    if (cargoF && e.cargo !== cargoF) return false;
+    if (ufF && e.uf !== ufF) return false;
+    if (ativoF === 'sim' && e.saida) return false;
+    if (ativoF === 'nao' && !e.saida) return false;
+    if (statusF && getStatusLabel(e) !== statusF) return false;
+    return true;
+  });
+
+  document.getElementById('ctrl-info').textContent = `${emps.length} colaborador(es) · ${visibleDocs.length} tipo(s) de documento`;
+
+  const thead = document.getElementById('ctrl-thead');
+  thead.innerHTML = `<tr>
+    <th class="emp-name-col" style="position:sticky;left:0;background:var(--surface2);">Colaborador</th>
+    <th style="min-width:100px;">Cargo</th>
+    <th style="min-width:40px;">UF</th>
+    <th style="min-width:60px;">Status</th>
+    <th style="min-width:60px;">Conform.</th>
+    ${visibleDocs.map(d=>`<th class="doc-header-cell" title="${d.name}">${d.short}</th>`).join('')}
+  </tr>`;
+
+  const tbody = document.getElementById('ctrl-tbody');
+  tbody.innerHTML = emps.map(emp => {
+    const s = getEmpDocStatus(emp);
+    const lbl = getStatusLabel(emp);
+    const pctColor = s.pct >= 90 ? 'var(--green)' : s.pct >= 60 ? 'var(--yellow)' : 'var(--red)';
+    return `<tr>
+      <td style="position:sticky;left:0;background:var(--surface);white-space:nowrap;">
+        <div style="font-weight:600;font-size:12px;">${emp.nome}</div>
+        <div style="font-size:10px;color:var(--text2);">${emp.cpf||''}</div>
+      </td>
+      <td><span class="cargo-badge" title="${emp.cargo}">${shortCargo(emp.cargo)}</span></td>
+      <td style="font-weight:600;color:var(--text2);">${emp.uf||'—'}</td>
+      <td><span class="badge ${lbl}">${lbl==='ok'?'✅':lbl==='pendente'?'⚠️':'🔴'}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="progress-bar-wrap" style="width:50px;"><div class="progress-bar-fill" style="width:${s.pct}%;background:${pctColor};"></div></div>
+          <span style="font-size:11px;font-weight:700;color:${pctColor}">${s.pct}%</span>
+        </div>
+      </td>
+      ${visibleDocs.map(dt => {
+        const v = emp.docs?.[dt.id];
+        const cl = v==='ok'?'ok':v==='pendente'?'pendente':v==='na'?'na':'vazio';
+        const icon = v==='ok'?'✓':v==='pendente'?'!':v==='na'?'—':'✕';
+        const tip = `${emp.nome} — ${dt.name}: ${v==='ok'?'Entregue':v==='pendente'?'Pendente':v==='na'?'Não aplicável':'Não entregue'}`;
+        return `<td style="text-align:center;padding:4px 2px;">
+          <div class="doc-cell ${cl}" title="${tip}" onclick="openEditDoc(${emp.id})">${icon}</div>
+        </td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+}
+
+// ================================================================
+// EDIT DOCUMENT MODAL
+// ================================================================
+function openEditDoc(empId) {
+  const emp = employees.find(e => e.id === empId);
+  if (!emp) return;
+  editingEmpId = empId;
+  editingDocStatus = { ...emp.docs };
+
+  document.getElementById('editdoc-title').textContent = `📋 ${emp.nome}`;
+
+  const alias = getCargoAlias(emp.cargo);
+  const groups = { admissao: 'Documentos de Admissão', qualificacao: 'Qualificação Técnica', conduta: 'Conduta & Contrato' };
+
+  let html = `<div style="margin-bottom:12px;font-size:12px;color:var(--text2);">Cargo: <strong style="color:var(--text)">${shortCargo(emp.cargo)}</strong> · UF: <strong style="color:var(--text)">${emp.uf||'—'}</strong></div>`;
+
+  Object.entries(groups).forEach(([grpId, grpName]) => {
+    const docs = DOC_TYPES.filter(d => d.group === grpId);
+    html += `<div style="margin-bottom:16px;"><div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">${grpName}</div>`;
+    html += `<div class="doc-type-grid">`;
+    docs.forEach(dt => {
+      const req = isDocRequired(dt, alias);
+      const cur = editingDocStatus[dt.id];
+      const sel = cur === 'ok' ? 'selected' : '';
+      const naClass = !req ? 'not-required' : '';
+      html += `<div class="doc-type-btn ${sel} ${naClass}" id="dbtn-${dt.id}" onclick="${req ? `toggleDocBtn('${dt.id}')` : ''}">
+        <div class="doc-type-name">${dt.name} <span style="font-size:10px;color:var(--text2);">(${dt.short})</span></div>
+        <div class="doc-type-desc">${dt.desc}</div>
+        <div style="margin-top:6px;">
+          ${req ? `
+          <select onchange="setDocVal('${dt.id}',this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;font-size:11px;">
+            <option value="" ${!cur||cur===''?'selected':''}>Não entregue</option>
+            <option value="pendente" ${cur==='pendente'?'selected':''}>⚠️ Pendente</option>
+            <option value="ok" ${cur==='ok'?'selected':''}>✅ Entregue</option>
+          </select>` : `<span style="font-size:10px;color:var(--gray);">Não exigido para este cargo</span>`}
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+  });
+
+  document.getElementById('editdoc-body').innerHTML = html;
+  showModal('editdoc');
+}
+
+function setDocVal(docId, val) {
+  editingDocStatus[docId] = val || null;
+  const btn = document.getElementById('dbtn-' + docId);
+  if (btn) {
+    btn.classList.toggle('selected', val === 'ok');
+  }
+}
+
+function toggleDocBtn(docId) {
+  const cur = editingDocStatus[docId];
+  const next = cur === 'ok' ? null : cur === 'pendente' ? 'ok' : 'pendente';
+  setDocVal(docId, next);
+  const sel = document.querySelector(`#dbtn-${docId} select`);
+  if (sel) sel.value = next || '';
+}
+
+function saveDocStatus() {
+  const emp = employees.find(e => e.id === editingEmpId);
+  if (!emp) return;
+  emp.docs = { ...editingDocStatus };
+  closeModal('editdoc');
+  renderControle();
+  updateDashboard();
+  renderColaboradores();
+  toast('Documentos atualizados!', 'success');
+}
+
+// ================================================================
+// COLABORADORES
+// ================================================================
+function renderColaboradores() {
+  const search = document.getElementById('emp-search')?.value?.toLowerCase()||'';
+  const cargoF = document.getElementById('emp-cargo-f')?.value||'';
+  const ufF = document.getElementById('emp-uf-f')?.value||'';
+  const ativoF = document.getElementById('emp-ativo-f')?.value||'';
+
+  let emps = employees.filter(e => {
+    if (search && !e.nome.toLowerCase().includes(search) && !e.cpf?.includes(search)) return false;
+    if (cargoF && e.cargo !== cargoF) return false;
+    if (ufF && e.uf !== ufF) return false;
+    if (ativoF === 'sim' && e.saida) return false;
+    if (ativoF === 'nao' && !e.saida) return false;
+    return true;
+  });
+
+  document.getElementById('emp-tbody').innerHTML = emps.map(emp => {
+    const s = getEmpDocStatus(emp);
+    const lbl = getStatusLabel(emp);
+    const pctColor = s.pct >= 90 ? 'var(--green)' : s.pct >= 60 ? 'var(--yellow)' : 'var(--red)';
+    const isAtivo = !emp.saida;
+    return `<tr>
+      <td><strong>${emp.nome}</strong></td>
+      <td style="font-size:11px;color:var(--text2);">${shortCargo(emp.cargo)}</td>
+      <td style="font-weight:600;">${emp.uf||'—'}</td>
+      <td style="font-size:11px;color:var(--text2);">${emp.cpf||'—'}</td>
+      <td style="font-size:11px;">${emp.telefone||'—'}</td>
+      <td style="font-size:11px;">${
+        emp.tablet === 'sim'
+          ? '<span class="badge ok">✓ Sim</span>'
+          : emp.tablet === 'nao'
+            ? `<span class="badge critico" title="${emp.tablet_motivo||''}" style="cursor:help;">✕ Não${emp.tablet_motivo ? ' ⓘ' : ''}</span>`
+            : '<span style="color:var(--text2);">—</span>'
+      }</td>
+      <td style="font-size:11px;">${
+        emp.uniforme === 'sim'
+          ? `<span class="badge ok">✓ Entregue${emp.uniforme_anexo ? ' 📎' : ''}</span>`
+          : emp.uniforme === 'nao'
+            ? '<span class="badge critico">✕ Pendente</span>'
+            : '<span style="color:var(--text2);">—</span>'
+      }</td>
+      <td style="font-size:11px;">${emp.entrada||'—'}</td>
+      <td style="font-size:11px;">${emp.saida||'—'}</td>
+      <td>${isAtivo?'<span class="badge ok">✓ Ativo</span>':'<span class="badge na">Desligado</span>'}</td>
+      <td style="font-size:12px;font-weight:700;color:var(--green);">${s.ok}/${s.total}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="progress-bar-wrap" style="width:60px;"><div class="progress-bar-fill" style="width:${s.pct}%;background:${pctColor};"></div></div>
+          <span style="font-size:12px;font-weight:700;color:${pctColor}">${s.pct}%</span>
+        </div>
+      </td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="openEditEmployee(${emp.id})" title="Editar colaborador">✏️</button>
+        <button class="btn btn-secondary btn-sm" style="margin-left:4px;" onclick="openEditDoc(${emp.id})" title="Editar documentos">📋 Docs</button>
+        <button class="btn btn-secondary btn-sm" style="margin-left:4px;" onclick="removeEmployee(${emp.id})" title="Remover">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleTabletMotivo(prefix) {
+  const val  = document.getElementById(`${prefix}-tablet`)?.value;
+  const wrap = document.getElementById(`${prefix}-tablet-motivo-wrap`);
+  if (wrap) wrap.style.display = val === 'nao' ? 'block' : 'none';
+}
+
+function showAnexoNome(inputId, labelId) {
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+  if (!input || !label) return;
+  label.textContent = input.files[0] ? input.files[0].name : 'Nenhum arquivo';
+  label.style.color = input.files[0] ? 'var(--green)' : 'var(--text2)';
+}
+
+function addEmployee() {
+  const nome              = document.getElementById('new-nome')?.value?.trim();
+  const cargo             = document.getElementById('new-cargo')?.value;
+  const uf                = document.getElementById('new-uf')?.value?.trim().toUpperCase();
+  const cpf               = document.getElementById('new-cpf')?.value?.trim();
+  const entrada           = document.getElementById('new-entrada')?.value;
+  const saida             = document.getElementById('new-saida')?.value;
+  const telefone          = document.getElementById('new-telefone')?.value?.trim();
+  const tablet            = document.getElementById('new-tablet')?.value;
+  const tablet_motivo     = document.getElementById('new-tablet-motivo')?.value?.trim();
+  const uniforme          = document.getElementById('new-uniforme')?.value;
+  const unifAnexoInput    = document.getElementById('new-uniforme-anexo');
+  const uniforme_anexo    = unifAnexoInput?.files[0] || null;
+  const uniforme_anexo_nome = uniforme_anexo ? uniforme_anexo.name : '';
+
+  if (!nome) { toast('Informe o nome do colaborador', 'error'); return; }
+  const docs = {};
+  const alias = getCargoAlias(cargo);
+  DOC_TYPES.forEach(dt => { docs[dt.id] = isDocRequired(dt, alias) ? null : 'na'; });
+  const newId = employees.length ? Math.max(...employees.map(e => e.id))+1 : 1;
+  employees.push({ id: newId, nome, cargo, uf, cpf, entrada, saida, telefone, tablet, tablet_motivo, uniforme, uniforme_anexo, uniforme_anexo_nome, docs });
+  closeModal('addemp');
+  ['new-nome','new-telefone','new-tablet-motivo'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  ['new-tablet','new-uniforme'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('new-tablet-motivo-wrap').style.display = 'none';
+  document.getElementById('new-uniforme-anexo-nome').textContent = 'Nenhum arquivo';
+  if (unifAnexoInput) unifAnexoInput.value = '';
+  initFilters();
+  renderControle();
+  renderColaboradores();
+  updateDashboard();
+  toast('Colaborador adicionado!', 'success');
+}
+
+function removeEmployee(id) {
+  if (!confirm('Remover este colaborador?')) return;
+  employees = employees.filter(e => e.id !== id);
+  renderColaboradores();
+  renderControle();
+  updateDashboard();
+  toast('Colaborador removido', 'success');
+}
+
+function openEditEmployee(id) {
+  const emp = employees.find(e => e.id === id);
+  if (!emp) return;
+  populateCargoSelect('edit-emp-cargo');
+  document.getElementById('edit-emp-id').value            = id;
+  document.getElementById('edit-emp-nome').value          = emp.nome              || '';
+  document.getElementById('edit-emp-cargo').value         = emp.cargo             || '';
+  document.getElementById('edit-emp-uf').value            = emp.uf                || '';
+  document.getElementById('edit-emp-cpf').value           = emp.cpf               || '';
+  document.getElementById('edit-emp-entrada').value       = emp.entrada           || '';
+  document.getElementById('edit-emp-saida').value         = emp.saida             || '';
+  document.getElementById('edit-emp-telefone').value      = emp.telefone          || '';
+  document.getElementById('edit-emp-tablet').value        = emp.tablet            || '';
+  document.getElementById('edit-emp-tablet-motivo').value = emp.tablet_motivo     || '';
+  document.getElementById('edit-emp-uniforme').value      = emp.uniforme          || '';
+  const anexoNome = document.getElementById('edit-emp-uniforme-anexo-nome');
+  if (anexoNome) {
+    anexoNome.textContent = emp.uniforme_anexo_nome || 'Nenhum arquivo';
+    anexoNome.style.color = emp.uniforme_anexo_nome ? 'var(--green)' : 'var(--text2)';
+  }
+  const anexoInput = document.getElementById('edit-emp-uniforme-anexo');
+  if (anexoInput) anexoInput.value = '';
+  toggleTabletMotivo('edit-emp');
+  showModal('editmemp');
+}
+
+function saveEditEmployee() {
+  const id    = parseInt(document.getElementById('edit-emp-id').value);
+  const emp   = employees.find(e => e.id === id);
+  if (!emp) return;
+
+  const nome              = document.getElementById('edit-emp-nome').value.trim();
+  const cargo             = document.getElementById('edit-emp-cargo').value;
+  const uf                = document.getElementById('edit-emp-uf').value.trim().toUpperCase();
+  const cpf               = document.getElementById('edit-emp-cpf').value.trim();
+  const entrada           = document.getElementById('edit-emp-entrada').value;
+  const saida             = document.getElementById('edit-emp-saida').value;
+  const telefone          = document.getElementById('edit-emp-telefone').value.trim();
+  const tablet            = document.getElementById('edit-emp-tablet').value;
+  const tablet_motivo     = document.getElementById('edit-emp-tablet-motivo').value.trim();
+  const uniforme          = document.getElementById('edit-emp-uniforme').value;
+  const unifAnexoInput    = document.getElementById('edit-emp-uniforme-anexo');
+  const newAnexo          = unifAnexoInput?.files[0] || null;
+
+  if (!nome) { toast('Nome obrigatório.', 'error'); return; }
+
+  const cargoChanged = cargo && cargo !== emp.cargo;
+
+  emp.nome          = nome;
+  emp.uf            = uf;
+  emp.cpf           = cpf;
+  emp.entrada       = entrada;
+  emp.saida         = saida;
+  emp.telefone      = telefone;
+  emp.tablet        = tablet;
+  emp.tablet_motivo = tablet === 'nao' ? tablet_motivo : '';
+  emp.uniforme      = uniforme;
+  if (newAnexo) {
+    emp.uniforme_anexo      = newAnexo;
+    emp.uniforme_anexo_nome = newAnexo.name;
+  }
+
+  if (cargoChanged) {
+    emp.cargo = cargo;
+    const newAlias = getCargoAlias(cargo);
+    DOC_TYPES.forEach(dt => {
+      const required = isDocRequired(dt, newAlias);
+      if (!required && emp.docs[dt.id] !== 'ok' && emp.docs[dt.id] !== 'pendente') {
+        emp.docs[dt.id] = 'na';
+      } else if (required && emp.docs[dt.id] === 'na') {
+        emp.docs[dt.id] = null;
+      }
+    });
+  }
+
+  closeModal('editmemp');
+  renderColaboradores();
+  renderControle();
+  updateDashboard();
+  toast(`✅ ${nome} atualizado!`, 'success');
+}
+
+// ================================================================
+// EXPORT EXCEL
+// ================================================================
+function exportExcel() {
+  if (!employees.length) { toast('Nenhum dado para exportar', 'error'); return; }
+
+  const h1 = ['Nome', 'Cargo', 'UF', 'CPF', 'Entrada', 'Saída', 'Status Docs', 'Conformidade %',
+    ...DOC_TYPES.map(d => d.name)];
+  const r1 = [h1];
+  employees.forEach(emp => {
+    const s = getEmpDocStatus(emp);
+    r1.push([
+      emp.nome, emp.cargo, emp.uf, emp.cpf, emp.entrada, emp.saida,
+      getStatusLabel(emp), s.pct,
+      ...DOC_TYPES.map(dt => emp.docs[dt.id] === 'ok' ? 'Entregue' : emp.docs[dt.id] === 'pendente' ? 'Pendente' : emp.docs[dt.id] === 'na' ? 'N/A' : 'Não entregue')
+    ]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(r1), 'Documentos');
+  XLSX.writeFile(wb, `Controle_Documentos_TCU_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast('Exportação concluída!', 'success');
+}
+
+// ================================================================
+// UTILS
+// ================================================================
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+function showModal(id) {
+  document.getElementById('modal-'+id).classList.add('open');
+  if (id === 'onedrive') { gdInitModal(); gdUpdatePathPreview(); }
+}
+function closeModal(id) { document.getElementById('modal-'+id).classList.remove('open'); }
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if (el) el.classList.add('active');
+  if (id === 'dashboard') updateDashboard();
+  if (id === 'controle') renderControle();
+  if (id === 'documentos') initDocumentosPage();
+  if (id === 'colaboradores') renderColaboradores();
+}
+function toast(msg, type='success') {
+  const el = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast-icon').textContent = type === 'success' ? '✅' : '❌';
+  el.className = 'show ' + type;
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ================================================================
+// DOCUMENTOS PAGE
+// ================================================================
+let uploadedDocs = [];
+
+function initDocumentosPage() {
+  populateDocTypeSelect('upload-doctype');
+  populateDocTypeSelect('doc-doctype-filter', true);
+  populateColaboradorSelect();
+  renderDocs();
+}
+
+function populateDocTypeSelect(id, withAll = false) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = withAll
+    ? '<option value="">Todos os documentos</option>'
+    : '<option value="">Selecione o tipo</option>';
+  const groups = { admissao: 'Admissão', qualificacao: 'Qualificação', conduta: 'Conduta & Contrato' };
+  Object.entries(groups).forEach(([grpId, grpName]) => {
+    const opts = DOC_TYPES.filter(d => d.group === grpId);
+    const og = document.createElement('optgroup');
+    og.label = grpName;
+    opts.forEach(d => {
+      const o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = `${d.name} (${d.short})`;
+      og.appendChild(o);
+    });
+    el.appendChild(og);
+  });
+}
+
+function populateColaboradorSelect() {
+  const el = document.getElementById('upload-colaborador');
+  if (!el) return;
+  el.innerHTML = '<option value="">Selecione o colaborador</option>';
+  [...employees].sort((a,b) => a.nome.localeCompare(b.nome)).forEach(e => {
+    el.innerHTML += `<option value="${e.id}">${e.nome}${e.uf ? ' ('+e.uf+')' : ''}</option>`;
+  });
+}
+
+function updateUploadBadge() {
+  const dtId = document.getElementById('upload-doctype').value;
+  const empId = document.getElementById('upload-colaborador').value;
+  const badge = document.getElementById('upload-badge');
+  const btnAt = document.getElementById('btn-aplicar-todos');
+  const dt = DOC_TYPES.find(d => d.id === dtId);
+  const emp = employees.find(e => String(e.id) === empId);
+  if (dt || emp) {
+    badge.style.display = 'block';
+    badge.textContent = `${dt ? '📋 '+dt.short : '📋 ?'} · ${emp ? '👤 '+emp.nome.split(' ')[0]+' '+emp.nome.split(' ').slice(-1)[0] : '👤 ?'}`;
+  } else {
+    badge.style.display = 'none';
+  }
+  btnAt.style.display = uploadedDocs.length > 0 && (dt || emp) ? 'inline-flex' : 'none';
+}
+
+function docDragOver(e) { e.preventDefault(); document.getElementById('doc-dropzone').classList.add('dragover'); }
+function docDragLeave() { document.getElementById('doc-dropzone').classList.remove('dragover'); }
+function docDropFiles(e) {
+  e.preventDefault();
+  document.getElementById('doc-dropzone').classList.remove('dragover');
+  const files = Array.from(e.dataTransfer.files);
+  const zips  = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
+  const docs  = files.filter(f => !f.name.toLowerCase().endsWith('.zip'));
+  if (zips.length > 0) zips.forEach(z => handleZipImport(z));
+  if (docs.length > 0) handleDocFiles(docs);
+}
+
+function handleDocFiles(files) {
+  if (!files || files.length === 0) return;
+  const arr = Array.from(files);
+  const dtId = document.getElementById('upload-doctype').value;
+  const empId = document.getElementById('upload-colaborador').value;
+  const emp = employees.find(e => String(e.id) === empId);
+
+  const wrap = document.getElementById('doc-progress-wrap');
+  wrap.style.display = 'block';
+  let done = 0;
+
+  arr.forEach((file, i) => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const isImg = ['jpg','jpeg','png','webp'].includes(ext);
+
+    // ── Auto-detect from filename ──────────────────────────────
+    const detected = parseFilename(file.name);
+    const resolvedDoctypeId = dtId || detected.doctypeId || null;
+    const resolvedEmp       = emp  || detected.emp       || null;
+
+    const doc = {
+      id: Date.now() + i,
+      name: file.name,
+      size: file.size < 1024*1024 ? (file.size/1024).toFixed(1)+' KB' : (file.size/1024/1024).toFixed(1)+' MB',
+      type: isImg ? 'img' : 'pdf',
+      date: new Date().toLocaleDateString('pt-BR'),
+      doctypeId:   resolvedDoctypeId,
+      empId:       resolvedEmp ? resolvedEmp.id   : null,
+      empNome:     resolvedEmp ? resolvedEmp.nome  : '',
+      autoDetected: detected.found,   // flag to show "detectado automaticamente"
+      synced: false,
+      file
+    };
+    if (isImg) {
+      const reader = new FileReader();
+      reader.onload = ev => { doc.preview = ev.target.result; uploadedDocs.push(doc); };
+      reader.readAsDataURL(file);
+    } else {
+      uploadedDocs.push(doc);
+    }
+    done++;
+    const pct = Math.round(done / arr.length * 100);
+    document.getElementById('doc-prog-bar').style.width = pct+'%';
+    document.getElementById('doc-prog-pct').textContent = pct+'%';
+    document.getElementById('doc-prog-label').textContent = `Carregando ${done}/${arr.length}...`;
+    if (done === arr.length) {
+      setTimeout(() => {
+        wrap.style.display = 'none';
+        renderDocs();
+        updateUploadBadge();
+        const autoOk  = uploadedDocs.filter(d => d.autoDetected && !d.synced).length;
+        const sem     = uploadedDocs.filter(d => (!d.doctypeId || !d.empId) && !d.synced).length;
+        if (autoOk > 0)
+          toast(`${arr.length} arquivo(s) carregado(s). ${autoOk} identificado(s) automaticamente pelo nome!`, 'success');
+        else if (sem > 0)
+          toast(`${arr.length} arquivo(s) carregado(s). ${sem} sem colaborador ou tipo — preencha manualmente.`, 'success');
+        else
+          toast(`${arr.length} arquivo(s) carregado(s)!`, 'success');
+      }, 300);
+    }
+  });
+}
+
+// ── Import ZIP ────────────────────────────────────────────────────
+async function handleZipImport(zipFile) {
+  if (!zipFile) return;
+  if (!window.JSZip) { toast('JSZip não carregou. Recarregue a página.', 'error'); return; }
+
+  const wrap = document.getElementById('doc-progress-wrap');
+  wrap.style.display = 'block';
+  document.getElementById('doc-prog-label').textContent = 'Lendo ZIP…';
+  document.getElementById('doc-prog-pct').textContent   = '0%';
+  document.getElementById('doc-prog-bar').style.width   = '0%';
+
+  try {
+    const zip     = await JSZip.loadAsync(zipFile);
+    const entries = Object.values(zip.files).filter(f => !f.dir);
+    const allowed = ['pdf','jpg','jpeg','png','webp'];
+    const valid   = entries.filter(f => {
+      const ext = f.name.split('.').pop().toLowerCase();
+      return allowed.includes(ext);
+    });
+
+    if (valid.length === 0) {
+      toast('Nenhum arquivo PDF/imagem encontrado no ZIP.', 'error');
+      wrap.style.display = 'none';
+      return;
+    }
+
+    let done = 0;
+    const dtId  = document.getElementById('upload-doctype').value;
+    const empId = document.getElementById('upload-colaborador').value;
+    const emp   = employees.find(e => String(e.id) === empId);
+
+    for (const entry of valid) {
+      // Use only the filename part (ignore folder path inside ZIP)
+      const shortName = entry.name.split('/').pop();
+      const ext       = shortName.split('.').pop().toLowerCase();
+      const isImg     = ['jpg','jpeg','png','webp'].includes(ext);
+      const mimeMap   = { pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp' };
+
+      const blob = await entry.async('blob');
+      const file = new File([blob], shortName, { type: mimeMap[ext] || 'application/octet-stream' });
+
+      const detected           = parseFilename(shortName);
+      const resolvedDoctypeId  = dtId || detected.doctypeId || null;
+      const resolvedEmp        = emp  || detected.emp       || null;
+
+      const doc = {
+        id:           Date.now() + Math.random(),
+        name:         shortName,
+        size:         blob.size < 1024*1024
+                        ? (blob.size/1024).toFixed(1)+' KB'
+                        : (blob.size/1024/1024).toFixed(1)+' MB',
+        type:         isImg ? 'img' : 'pdf',
+        date:         new Date().toLocaleDateString('pt-BR'),
+        doctypeId:    resolvedDoctypeId,
+        empId:        resolvedEmp ? resolvedEmp.id   : null,
+        empNome:      resolvedEmp ? resolvedEmp.nome  : '',
+        autoDetected: detected.found,
+        fromZip:      zipFile.name,
+        synced:       false,
+        file,
+      };
+      uploadedDocs.push(doc);
+
+      done++;
+      const pct = Math.round(done / valid.length * 100);
+      document.getElementById('doc-prog-bar').style.width   = pct + '%';
+      document.getElementById('doc-prog-pct').textContent   = pct + '%';
+      document.getElementById('doc-prog-label').textContent = `Extraindo ${done}/${valid.length}…`;
+    }
+
+    wrap.style.display = 'none';
+    renderDocs();
+    updateUploadBadge();
+
+    const autoOk = uploadedDocs.filter(d => d.autoDetected && d.fromZip && !d.synced).length;
+    const total  = valid.length;
+    toast(
+      `📦 ${total} arquivo(s) extraído(s) do ZIP${autoOk > 0 ? ` · ${autoOk} identificado(s) automaticamente` : ''}.`,
+      'success'
+    );
+
+    // Reset file input so same file can be imported again
+    const inp = document.getElementById('zipFileInput');
+    if (inp) inp.value = '';
+
+  } catch(err) {
+    wrap.style.display = 'none';
+    toast('Erro ao ler ZIP: ' + err.message, 'error');
+  }
+}
+
+// ── Parse filename to detect employee and doc type ────────────────
+function parseFilename(filename) {
+  const result = { found: false, emp: null, doctypeId: null };
+  if (!filename || !employees.length) return result;
+
+  // Normalize: remove extension, replace separators with space
+  const base = filename
+    .replace(/\.[^.]+$/, '')           // remove extension
+    .replace(/[_\-\.%20]+/g, ' ')      // separators → space
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // remove accents
+
+  // 1. Try to match document type by short code or name
+  for (const dt of DOC_TYPES) {
+    const short = dt.short.toLowerCase().replace(/[-_]/g,'');
+    const name  = dt.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if (base.includes(short) || base.includes(name.replace(/\s+/g,' ').trim())) {
+      result.doctypeId = dt.id;
+      break;
+    }
+  }
+
+  // 2. Try to match employee name — score by how many name parts appear in filename
+  let bestScore = 0;
+  let bestEmp   = null;
+  for (const e of employees) {
+    const normalized = e.nome.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const parts = normalized.split(' ').filter(p => p.length > 3);
+    const score = parts.filter(p => base.includes(p)).length;
+    if (score > bestScore) { bestScore = score; bestEmp = e; }
+  }
+  if (bestScore >= 2) {
+    result.emp = bestEmp;
+    result.found = true;
+  }
+  if (result.doctypeId) result.found = true;
+
+  return result;
+}
+
+function aplicarTodosClick() {
+  const dtId = document.getElementById('upload-doctype').value;
+  const empId = document.getElementById('upload-colaborador').value;
+  const emp = employees.find(e => String(e.id) === empId);
+  let count = 0;
+  uploadedDocs.forEach(d => {
+    if (d.synced) return;
+    if (dtId) { d.doctypeId = dtId; }
+    if (emp) { d.empId = emp.id; d.empNome = emp.nome; }
+    count++;
+  });
+  renderDocs();
+  toast(`Configuração aplicada a ${count} arquivo(s)!`, 'success');
+}
+
+function renderDocs() {
+  const search = (document.getElementById('doc-search')?.value||'').toLowerCase();
+  const typeF = document.getElementById('doc-type-filter')?.value||'';
+  const doctypeF = document.getElementById('doc-doctype-filter')?.value||'';
+  const statusF = document.getElementById('doc-status-filter')?.value||'';
+
+  let docs = uploadedDocs.filter(d => {
+    if (search && !d.name.toLowerCase().includes(search) && !d.empNome.toLowerCase().includes(search)) return false;
+    if (typeF && d.type !== typeF) return false;
+    if (doctypeF && d.doctypeId !== doctypeF) return false;
+    if (statusF === 'pronto' && !(d.doctypeId && d.empId)) return false;
+    if (statusF === 'sem_match' && d.empId) return false;
+    if (statusF === 'sem_tipo' && d.doctypeId) return false;
+    return true;
+  });
+
+  const list = document.getElementById('doc-list');
+  const empty = document.getElementById('doc-empty');
+  const prontos   = uploadedDocs.filter(d => d.doctypeId && d.empId).length;
+  const semConfig = uploadedDocs.filter(d => !d.doctypeId || !d.empId).length;
+
+  const btnS = document.getElementById('btn-sincronizar');
+  const btnL = document.getElementById('btn-limpar-docs');
+  const btnZ = document.getElementById('btn-baixar-zip');
+  const lbl = document.getElementById('docs-count-label');
+  if (btnS) btnS.style.display = prontos > 0 ? 'inline-flex' : 'none';
+  if (btnL) btnL.style.display = uploadedDocs.length > 0 ? 'inline-flex' : 'none';
+  if (btnZ) btnZ.style.display = uploadedDocs.filter(d=>d.file).length > 0 ? 'inline-flex' : 'none';
+  // ZIP sincronizados — controlled by updateSincSessaoPanel
+  updateSincSessaoPanel();
+  if (lbl) lbl.textContent = uploadedDocs.length > 0
+    ? `${uploadedDocs.length} arquivo(s) · ${prontos} prontos · ${semConfig} incompletos`
+    : '';
+
+  if (docs.length === 0) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  list.innerHTML = docs.map(doc => {
+    const dt = DOC_TYPES.find(d => d.id === doc.doctypeId);
+    const emp = employees.find(e => e.id === doc.empId);
+    const canSync = doc.doctypeId && doc.empId;
+    const borderColor = canSync ? 'var(--accent)' : 'var(--red)';
+
+    // Doc type selector
+    const doctypeHtml = `<span style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${dt ? `<span style="color:var(--accent);font-weight:600;">📋 ${dt.name}</span>
+            <button onclick="limparDocType(${doc.id})" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:10px;" title="Alterar">✏️</button>`
+          : `<span style="color:var(--yellow);font-size:11px;">📋 sem tipo —</span>
+            <select onchange="vincularDocType(${doc.id},this.value)"
+              style="background:var(--surface2);border:1px solid var(--yellow);color:var(--text);border-radius:6px;padding:2px 8px;font-size:11px;max-width:200px;">
+              <option value="">tipo de documento...</option>
+              ${DOC_TYPES.map(d=>`<option value="${d.id}">${d.name} (${d.short})</option>`).join('')}
+            </select>`}
+        </span>`;
+
+    // Employee selector
+    const empHtml = `<span style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${emp ? `<span style="color:var(--green);font-weight:600;">👤 ${emp.nome}</span>
+            <button onclick="limparEmp(${doc.id})" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:10px;" title="Alterar">✏️</button>`
+          : `<span style="color:var(--yellow);font-size:11px;">👤 sem colaborador —</span>
+            <select onchange="vincularEmp(${doc.id},this.value)"
+              style="background:var(--surface2);border:1px solid var(--yellow);color:var(--text);border-radius:6px;padding:2px 8px;font-size:11px;max-width:220px;">
+              <option value="">selecionar colaborador...</option>
+              ${[...employees].sort((a,b)=>a.nome.localeCompare(b.nome)).map(e=>`<option value="${e.id}">${e.nome}${e.uf?' ('+e.uf+')':''}</option>`).join('')}
+            </select>`}
+        </span>`;
+
+    const statusBadge = canSync
+      ? `<span class="badge pendente">⚡ Pronto</span>`
+      : `<span class="badge critico">⚠ Incompleto</span>`;
+
+    const downloadBtn = doc.file
+      ? `<button class="btn btn-secondary btn-sm" onclick="downloadDocFile(uploadedDocs.find(d=>d.id===${doc.id}))" title="Baixar arquivo">⬇</button>`
+      : '';
+
+    return `<div class="file-item" style="border-left:3px solid ${borderColor};padding-left:14px;">
+      <div class="file-icon ${doc.type}">${doc.type==='pdf'?'📄':'🖼'}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="file-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${doc.name}">${doc.name}</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:5px;align-items:center;">
+          <span class="file-meta">${doc.size} · ${doc.date}</span>
+          ${doc.autoDetected ? `<span style="background:rgba(124,58,237,.15);color:#a78bfa;font-size:10px;padding:1px 7px;border-radius:10px;font-weight:600;">🔍 auto</span>` : ''}
+          ${doctypeHtml}
+          ${empHtml}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        ${statusBadge}
+        ${downloadBtn}
+        <button class="btn btn-secondary btn-sm" onclick="removeDoc(${doc.id})" title="Remover">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function vincularDocType(docId, val) {
+  const d = uploadedDocs.find(d => d.id === docId);
+  if (d) { d.doctypeId = val || null; renderDocs(); }
+}
+function limparDocType(docId) {
+  const d = uploadedDocs.find(d => d.id === docId);
+  if (d) { d.doctypeId = null; renderDocs(); }
+}
+function vincularEmp(docId, val) {
+  const d = uploadedDocs.find(d => d.id === docId);
+  const emp = employees.find(e => String(e.id) === val);
+  if (d) { d.empId = emp ? emp.id : null; d.empNome = emp ? emp.nome : ''; renderDocs(); }
+}
+function limparEmp(docId) {
+  const d = uploadedDocs.find(d => d.id === docId);
+  if (d) { d.empId = null; d.empNome = ''; renderDocs(); }
+}
+function removeDoc(id) {
+  uploadedDocs = uploadedDocs.filter(d => d.id !== id);
+  renderDocs();
+  toast('Arquivo removido', 'success');
+}
+function limparDocs() {
+  if (!confirm('Remover todos os arquivos carregados?')) return;
+  uploadedDocs = [];
+  renderDocs();
+  toast('Lista limpa', 'success');
+}
+
+// Armazena todos os docs sincronizados nesta sessão (para gerar ZIP depois)
+let _sincronizadosSessao = [];
+
+function sincronizarDocumentos() {
+  if (!employees.length) { toast('Nenhum colaborador cadastrado!', 'error'); return; }
+
+  const tasks = uploadedDocs.filter(d => !d.synced && d.doctypeId && d.empId);
+  if (tasks.length === 0) { toast('Nenhum documento pronto para sincronizar.', 'error'); return; }
+
+  let synced = 0, details = [];
+  const syncedDocs = [];
+
+  tasks.forEach(doc => {
+    const emp = employees.find(e => e.id === doc.empId);
+    const dt  = DOC_TYPES.find(d => d.id === doc.doctypeId);
+    if (!emp || !dt) {
+      details.push(`<span style="color:var(--yellow);">⚠ ${doc.name.substring(0,40)} — dados incompletos</span>`);
+      return;
+    }
+    emp.docs[dt.id] = 'ok';
+    doc.synced      = true;
+    doc.odStatus    = 'ok';
+    synced++;
+    syncedDocs.push({ ...doc }); // cópia para o histórico da sessão
+    details.push(`<span style="color:var(--green);">✓ ${emp.nome} — ${dt.name}</span>`);
+  });
+
+  // Accumulate synced docs for session ZIP
+  _sincronizadosSessao.push(...syncedDocs);
+  updateSincSessaoPanel();
+
+  // Show banner
+  const banner = document.getElementById('doc-sync-banner');
+  document.getElementById('doc-sync-details').innerHTML =
+    `<strong style="color:var(--green);">${synced} documento(s) sincronizado(s):</strong><br>` +
+    details.join('<br>');
+  banner.style.display = 'block';
+  setTimeout(() => banner.style.display = 'none', 10000);
+
+  // Remove synced docs from the pending list
+  if (syncedDocs.length > 0) {
+    const syncedIds = new Set(syncedDocs.map(d => d.id));
+    uploadedDocs = uploadedDocs.filter(d => !syncedIds.has(d.id));
+    const lbl = document.getElementById('docs-count-label');
+    if (lbl && uploadedDocs.filter(d => !d.synced).length === 0) lbl.textContent = '';
+  }
+
+  renderDocs(); updateDashboard(); renderControle(); renderColaboradores();
+
+  if (synced > 0) {
+    const pending = uploadedDocs.filter(d => !d.synced).length;
+    const total   = _sincronizadosSessao.length;
+    const msg = pending > 0
+      ? `✅ ${synced} doc(s) sincronizado(s). ${pending} ainda pendente(s). Total sessão: ${total}.`
+      : `✅ ${synced} doc(s) sincronizado(s)! Total sessão: ${total}.`;
+    toast(msg, 'success');
+  } else {
+    toast('Nenhum documento sincronizado.', 'error');
+  }
+}
+
+function updateSincSessaoPanel() {
+  const panel   = document.getElementById('sinc-session-panel');
+  const infoEl  = document.getElementById('sinc-session-info');
+  const btnZip  = document.getElementById('btn-zip-sincronizados');
+  const countEl = document.getElementById('zip-sinc-count');
+  const total   = _sincronizadosSessao.length;
+  const comArquivo = _sincronizadosSessao.filter(d => d.file).length;
+
+  if (panel)   panel.style.display   = total > 0 ? 'block' : 'none';
+  if (btnZip)  btnZip.style.display  = total > 0 ? 'inline-flex' : 'none';
+  if (countEl) countEl.textContent   = total;
+
+  if (infoEl && total > 0) {
+    infoEl.textContent = `${total} documento(s) sincronizados · ${comArquivo} com arquivo disponível para ZIP`;
+  }
+}
+
+function gerarZipSincronizados() {
+  const comArquivo = _sincronizadosSessao.filter(d => d.file);
+  if (comArquivo.length === 0) {
+    toast('Nenhum arquivo sincronizado disponível. Os arquivos ficam disponíveis apenas durante a sessão.', 'error');
+    return;
+  }
+  downloadZip(comArquivo);
+}
+
+function gerarZip() {
+  const docs = uploadedDocs.filter(d => d.file);
+  if (docs.length === 0) {
+    toast('Nenhum arquivo disponível para gerar ZIP.', 'error');
+    return;
+  }
+  downloadZip(docs);
+}
+
+
+// ================================================================
+// DOWNLOAD LOCAL — organiza arquivos em ZIP com estrutura de pastas
+// ================================================================
+
+let gdState = {
+  folderMode: localStorage.getItem('gd_folder_mode') || 'cargo_nome',
+};
+
+function saveGdConfig() {
+  gdState.folderMode = document.getElementById('gd-folder-mode')?.value || gdState.folderMode;
+  localStorage.setItem('gd_folder_mode', gdState.folderMode);
+  gdUpdatePathPreview();
+  toast('Configuração salva!', 'success');
+  closeModal('onedrive');
+}
+
+function gdUpdatePathPreview() {
+  const el = document.getElementById('gd-path-preview');
+  if (!el) return;
+  const mode = document.getElementById('gd-folder-mode')?.value || gdState.folderMode;
+  const exEmp = { nome:'Adriano Pereira da Silva', cargo:'Analista de suporte (EST)', uf:'GO' };
+  const exDt  = DOC_TYPES[0];
+  el.textContent = gdBuildPath(exEmp, exDt, mode) + '/ASO_Adriano Pereira da Silva.pdf';
+}
+
+function gdBuildPath(emp, dt, mode) {
+  mode = mode || gdState.folderMode;
+  const alias   = getCargoAlias(emp.cargo);
+  const empName = sanitizeName(emp.nome);
+  if      (mode === 'cargo_nome')    return `${alias}/${empName}/${dt.name}`;
+  else if (mode === 'nome')          return `${empName}/${dt.name}`;
+  else if (mode === 'uf_cargo_nome') return `${emp.uf||'DF'}/${alias}/${empName}/${dt.name}`;
+  return `${alias}/${empName}/${dt.name}`;
+}
+
+// Called when modal opens
+function gdInitModal() {
+  const saved = localStorage.getItem('gd_folder_mode');
+  const sel = document.getElementById('gd-folder-mode');
+  if (saved && sel) sel.value = saved;
+  gdUpdatePathPreview();
+}
+
+// Individual file download
+function downloadDocFile(doc) {
+  if (!doc?.file) { toast('Arquivo não disponível para download.', 'error'); return; }
+  const emp   = employees.find(e => e.id === doc.empId);
+  const dt    = DOC_TYPES.find(d => d.id === doc.doctypeId);
+  const ext   = (doc.file.name.split('.').pop() || 'pdf').toLowerCase();
+  const fname = emp && dt ? `${dt.short}_${sanitizeName(emp.nome)}.${ext}` : doc.file.name;
+  try {
+    const freshBlob = new Blob([doc.file], { type: doc.file.type });
+    const url = URL.createObjectURL(freshBlob);
+    const a   = document.createElement('a');
+    a.href = url; a.download = fname; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 10000);
+  } catch(err) {
+    toast('Erro ao baixar arquivo: ' + err.message, 'error');
+  }
+}
+
+// ZIP download of all synced docs organized by folder
+let _lastZipBlob     = null;
+let _lastZipFilename = '';
+
+async function downloadZip(docs) {
+  if (!window.JSZip) { toast('JSZip não carregou. Recarregue a página.', 'error'); return; }
+
+  const validDocs = docs.filter(d => d.file);
+  if (validDocs.length === 0) { toast('Nenhum arquivo disponível para o ZIP.', 'error'); return; }
+
+  toast('Gerando ZIP…', 'success');
+
+  const zip  = new JSZip();
+  const root = zip.folder('Documentação comprobatória para o cargo');
+
+  validDocs.forEach(doc => {
+    const emp = employees.find(e => e.id === doc.empId);
+    const dt  = DOC_TYPES.find(d => d.id === doc.doctypeId);
+    if (!emp || !dt) return;
+    const ext   = (doc.file.name.split('.').pop() || 'pdf').toLowerCase();
+    const fname = `${dt.short}_${sanitizeName(emp.nome)}.${ext}`;
+    const path  = gdBuildPath(emp, dt) + '/' + fname;
+    root.file(path, doc.file);
+  });
+
+  const blob = await zip.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 },
+  });
+
+  const dateStr  = new Date().toISOString().split('T')[0];
+  const filename = `Documentação_comprobatória_${dateStr}.zip`;
+
+  // Store for re-download
+  _lastZipBlob     = blob;
+  _lastZipFilename = filename;
+  updateLastZipPanel(validDocs.length, blob.size, filename, dateStr);
+
+  triggerZipDownload(blob, filename);
+  toast(`✅ ZIP gerado com ${validDocs.length} arquivo(s)!`, 'success');
+}
+
+function triggerZipDownload(blob, filename) {
+  try {
+    // Create a fresh Blob copy to avoid any stream-consumed issues
+    const freshBlob = new Blob([blob], { type: 'application/zip' });
+    const url = URL.createObjectURL(freshBlob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    // Give the browser time to initiate download before revoking
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 10000);
+  } catch(err) {
+    toast('Erro ao baixar ZIP: ' + err.message, 'error');
+    console.error('ZIP download error:', err);
+  }
+}
+
+function rebaixarZip() {
+  if (!_lastZipBlob) {
+    toast('Nenhum ZIP gerado nesta sessão. Gere o ZIP primeiro.', 'error');
+    return;
+  }
+  triggerZipDownload(_lastZipBlob, _lastZipFilename);
+  toast('⬇ Iniciando download…', 'success');
+}
+
+function updateLastZipPanel(count, sizeBytes, filename, dateStr) {
+  const panel = document.getElementById('last-zip-panel');
+  if (!panel) return;
+
+  const sizeMB = sizeBytes > 1024*1024
+    ? (sizeBytes/1024/1024).toFixed(2) + ' MB'
+    : (sizeBytes/1024).toFixed(1) + ' KB';
+
+  const now = new Date();
+  const time = now.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+
+  document.getElementById('last-zip-name').textContent  = filename;
+  document.getElementById('last-zip-date').textContent  = `${dateStr} às ${time}`;
+  document.getElementById('last-zip-count').textContent = count;
+  document.getElementById('last-zip-size').textContent  = sizeMB;
+  panel.style.display = 'block';
+}
+
+// Stub functions kept for UI compatibility
+function gdUpdateUI() {}
+function gdLogin()    {}
+function gdLogout()   {}
+
+function sanitizeName(nome) {
+  return nome.trim().replace(/[\\/:*?"<>|]/g, '_');
+}
+
+</script>
+</body>
+</html>
