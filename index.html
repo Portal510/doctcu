@@ -1772,8 +1772,9 @@ function getEmpDocStatus(emp) {
 
 function getStatusLabel(emp) {
   const s = getEmpDocStatus(emp);
-  if (s.missing >= 3) return 'critico';
-  if (s.missing > 0 || s.pend > 0) return 'pendente';
+  if (s.total === 0 || s.ok === s.total) return 'ok';
+  if (s.missing >= 3) return 'critico';          // 3+ docs não entregues = crítico
+  if (s.missing > 0 || s.pend > 0) return 'pendente'; // 1-2 faltando = pendente
   return 'ok';
 }
 
@@ -1828,9 +1829,6 @@ function updateDashboard() {
     });
     const labels = Object.keys(cargoGroups);
     destroyChart('chartCargo');
-    // Reset canvas to clear any stale render artifacts
-    const oldCargo = document.getElementById('chartCargo');
-    if (oldCargo) { const p=oldCargo.parentNode; const nc=document.createElement('canvas'); nc.id='chartCargo'; p.replaceChild(nc,oldCargo); }
     const cvsCargo = document.getElementById('chartCargo');
     if (cvsCargo) {
       charts.chartCargo = new Chart(cvsCargo, {
@@ -1857,8 +1855,6 @@ function updateDashboard() {
 
   try {
     destroyChart('chartDonut');
-    const oldDonut = document.getElementById('chartDonut');
-    if (oldDonut) { const p=oldDonut.parentNode; const nc=document.createElement('canvas'); nc.id='chartDonut'; p.replaceChild(nc,oldDonut); }
     const cvsDonut = document.getElementById('chartDonut');
     if (cvsDonut) {
       charts.chartDonut = new Chart(cvsDonut, {
@@ -2361,7 +2357,9 @@ function renderControle() {
         const cl = v==='ok'?'ok':v==='pendente'?'pendente':v==='na'?'na':'vazio';
         const icon = v==='ok'?'✓':v==='pendente'?'!':v==='na'?'—':'✕';
         const tip = `${emp.nome} — ${dt.name}: ${v==='ok'?'Entregue':v==='pendente'?'Pendente':v==='na'?'Não aplicável':'Não entregue'}`;
-        return `<td style="text-align:center;padding:4px 2px;">
+        // Se filtro ativo (critico/pendente/nao_entregue), destaca apenas os pendentes/faltantes
+        const dimmed = (statusF === 'critico' || statusF === 'pendente' || statusF === 'nao_entregue') && (v === 'ok' || v === 'na');
+        return `<td style="text-align:center;padding:4px 2px;${dimmed?'opacity:0.18;':''}">
           <div class="doc-cell ${cl}" title="${tip}" onclick="openEditDoc(${emp.id})">${icon}</div>
         </td>`;
       }).join('')}
@@ -2676,7 +2674,15 @@ function exportExcel() {
 // ================================================================
 // UTILS
 // ================================================================
-function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+function destroyChart(id) {
+  if (charts[id]) { try { charts[id].destroy(); } catch(e){} delete charts[id]; }
+  // Also destroy via Chart.js registry to avoid 'canvas already in use' error
+  const el = document.getElementById(id === 'chartCargo' ? 'chartCargo' : 'chartDonut');
+  if (el && window.Chart) {
+    const existing = Chart.getChart(el);
+    if (existing) { try { existing.destroy(); } catch(e){} }
+  }
+}
 function showModal(id) {
   document.getElementById('modal-'+id).classList.add('open');
   if (id === 'onedrive') { gdInitModal(); gdUpdatePathPreview(); }
@@ -2906,11 +2912,15 @@ async function handleZipImport(zipFile) {
     wrap.style.display = 'none';
     renderDocs();
     updateUploadBadge();
+    // Atualiza todas as abas automaticamente
+    updateDashboard();
+    renderControle();
+    renderColaboradores();
 
     const autoOk = uploadedDocs.filter(d => d.autoDetected && d.fromZip && !d.synced).length;
     const total  = valid.length;
     toast(
-      `📦 ${total} arquivo(s) extraído(s) do ZIP${autoOk > 0 ? ` · ${autoOk} identificado(s) automaticamente` : ''}.`,
+      `📦 ${total} arquivo(s) extraído(s) do ZIP${autoOk > 0 ? ` · ${autoOk} identificado(s) automaticamente` : ''}. Abas atualizadas!`,
       'success'
     );
 
