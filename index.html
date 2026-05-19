@@ -1364,10 +1364,7 @@ function startViewerSync() {
         _lastSyncTs = ts;
         const ok = await loadFromStorage();
         if (ok) {
-          initFilters();
-          updateDashboard();
-          renderControle();
-          renderColaboradores();
+          fullRefresh();
           showSyncPulse();
         }
       }
@@ -1384,13 +1381,10 @@ async function viewerRefresh() {
   try {
     const ok = await loadFromStorage();
     if (ok) {
-      initFilters();
-      updateDashboard();
-      renderControle();
-      renderColaboradores();
+      fullRefresh();
       showSyncPulse();
       const now = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-      if (status) status.textContent = `Última atualização: ${now}`;
+      if (status) { status.style.color = 'var(--green)'; status.textContent = `Atualizado às ${now}`; }
     } else {
       if (status) { status.style.color = 'var(--yellow)'; status.textContent = 'Sem dados no servidor ainda.'; }
     }
@@ -1488,25 +1482,41 @@ async function doLogin() {
 }
 
 async function initApp() {
-  // Tenta carregar do Supabase primeiro
   const ind = document.getElementById('sync-indicator');
   if (ind) { ind.textContent = '☁ carregando…'; ind.style.color = 'var(--text2)'; }
+
+  // 1. Sempre carrega do Supabase primeiro
   const hasStored = await loadFromStorage();
+
+  // 2. Se Supabase vazio, usa dados de amostra e salva no Supabase (admin)
   if (!hasStored) {
     loadSampleData();
-    // Admin: salva dados iniciais no Supabase
-    if (isAdmin()) setTimeout(saveToStorage, 1000);
+    if (isAdmin()) setTimeout(saveToStorage, 500);
   }
+
   if (ind) ind.textContent = '';
-  initFilters();
-  updateDashboard();
-  renderControle();
-  populateCargoSelect('new-cargo');
-  populateColaboradorSelect();
+
+  // 3. Renderiza tudo com os dados já carregados
+  fullRefresh();
+
+  // 4. Aplica restrições de perfil e inicia sync do viewer
   setTimeout(() => {
     applyRoleRestrictions();
     if (!isAdmin()) startViewerSync();
-  }, 150);
+  }, 200);
+}
+
+// Atualiza todas as abas de uma vez
+function fullRefresh() {
+  initFilters();
+  // Destrói charts antes de recriar para evitar canvas ghost
+  destroyChart('chartCargo');
+  destroyChart('chartDonut');
+  updateDashboard();
+  renderControle();
+  renderColaboradores();
+  populateCargoSelect('new-cargo');
+  populateColaboradorSelect();
 }
 
 function doLogout() {
@@ -1782,13 +1792,8 @@ function getStatusLabel(emp) {
 
 function refreshDashboard() {
   const btn = document.getElementById('btn-refresh-dash');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = '⏳ Atualizando…';
-  }
-  initFilters();
-  updateDashboard();
-  renderControle();
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Atualizando…'; }
+  fullRefresh();
   setTimeout(() => {
     if (btn) { btn.disabled = false; btn.textContent = '🔄 Atualizar'; }
     toast('Dashboard atualizado!', 'success');
