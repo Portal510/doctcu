@@ -586,7 +586,7 @@
     </div>
     <div class="table-wrap" style="max-height:320px;">
       <table>
-        <thead><tr><th>Colaborador</th><th>Cargo</th><th>UF</th><th>Docs Faltando</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Colaborador</th><th>Cargo</th><th>UF</th><th>Docs Faltando</th><th>Status</th><th>E-mail</th><th></th></tr></thead>
         <tbody id="dash-table"></tbody>
       </table>
     </div>
@@ -1629,7 +1629,7 @@ function loadSampleData() {
     DOC_TYPES.forEach(dt => {
       docs[dt.id] = isDocRequired(dt, alias) ? null : 'na';
     });
-    return { id: i + 1, nome: e.nome, cargo: e.cargo, uf: e.uf, cpf: e.cpf, entrada: e.entrada, saida: '', telefone: '', tablet: '', tablet_motivo: '', uniforme: '', uniforme_anexo: null, uniforme_anexo_nome: '', docs };
+    return { id: i + 1, nome: e.nome, cargo: e.cargo, uf: e.uf, cpf: e.cpf, entrada: e.entrada, saida: '', telefone: '', tablet: '', tablet_motivo: '', uniforme: '', uniforme_anexo: null, uniforme_anexo_nome: '', email_enviado: '', docs };
   });
 }
 
@@ -1908,25 +1908,33 @@ function updateDashboard() {
       if (searchCargo && e.cargo !== searchCargo)                        return false;
       return true;
     })
-    .sort((a,b) => getEmpDocStatus(b).missing - getEmpDocStatus(a).missing)
+    .sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'))
     .slice(0, 50);
 
   const dashTable = document.getElementById('dash-table');
   if (dashTable) {
     dashTable.innerHTML = critical.length === 0
-      ? '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:24px;">✅ Todos os colaboradores com documentação completa</td></tr>'
+      ? '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:24px;">✅ Todos os colaboradores com documentação completa</td></tr>'
       : critical.map(e => {
           const lbl     = getStatusLabel(e);
           const missing = DOC_TYPES
-            .filter(dt => isDocRequired(dt, getCargoAlias(e.cargo)) && e.docs[dt.id] !== 'ok')
+            .filter(dt => isDocRequired(dt, getCargoAlias(e.cargo)) && !isDocSatisfiedByOr(dt.id, getCargoAlias(e.cargo), e.docs||{}) && e.docs[dt.id] !== 'ok')
             .map(dt => dt.short).join(', ');
+          const enviado  = e.email_enviado || '';
+          const emailBadge = enviado
+            ? `<span style="background:rgba(16,185,129,.15);color:var(--green);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;">✓ ${enviado}</span>`
+            : `<span style="color:var(--text2);font-size:11px;">—</span>`;
           return `<tr>
             <td><strong>${e.nome}</strong></td>
             <td style="font-size:11px;color:var(--text2);">${shortCargo(e.cargo)}</td>
             <td>${e.uf||'—'}</td>
             <td style="font-size:11px;color:var(--yellow);">${missing}</td>
             <td><span class="badge ${lbl}">${lbl==='ok'?'✅ Completo':lbl==='pendente'?'⚠️ Pendente':'🔴 Crítico'}</span></td>
-            <td><button class="btn btn-secondary btn-sm" onclick="composeEmailPendencias(${e.id})" title="Enviar e-mail de pendências">✉</button></td>
+            <td style="white-space:nowrap;">${emailBadge}</td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-secondary btn-sm" onclick="composeEmailPendencias(${e.id})" title="Redigir e-mail">✉</button>
+              <button class="btn btn-secondary btn-sm" style="margin-left:4px;" onclick="marcarEmailEnviado(${e.id})" title="Marcar e-mail como enviado">✓ Enviado</button>
+            </td>
           </tr>`;
         }).join('');
   }
@@ -2101,6 +2109,16 @@ function mostrarReqsCargo(empId) {
   if (reqs.length === 0) { toast('Requisitos não mapeados para este cargo.', 'error'); return; }
   const lista = reqs.map((r,i) => `${i+1}. ${r}`).join('\n');
   alert(`Requisitos do cargo — ${emp.cargo}\n(${emp.nome})\n\n${lista}`);
+}
+
+function marcarEmailEnviado(empId) {
+  const emp = employees.find(e => e.id === empId);
+  if (!emp) return;
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  emp.email_enviado = hoje;
+  notifyDataChange();
+  updateDashboard();
+  toast(`✓ E-mail marcado como enviado para ${emp.nome.split(' ')[0]} em ${hoje}`, 'success');
 }
 
 function composeEmailPendencias(empId) {
@@ -2698,8 +2716,7 @@ function destroyChart(id) {
   // Destroy via our reference
   if (charts[id]) { try { charts[id].destroy(); } catch(e){} delete charts[id]; }
   // Destroy via Chart.js registry (prevents 'canvas already in use' error)
-  const canvasId = id === 'chartCargo' ? 'chartCargo' : 'chartDonut';
-  const el = document.getElementById(canvasId);
+  const el = document.getElementById(id); // id IS the canvas id
   if (el) {
     if (window.Chart) {
       const existing = Chart.getChart(el);
