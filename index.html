@@ -1772,9 +1772,11 @@ function getEmpDocStatus(emp) {
 
 function getStatusLabel(emp) {
   const s = getEmpDocStatus(emp);
-  if (s.total === 0 || s.ok === s.total) return 'ok';
-  if (s.missing >= 3) return 'critico';          // 3+ docs não entregues = crítico
-  if (s.missing > 0 || s.pend > 0) return 'pendente'; // 1-2 faltando = pendente
+  if (s.total === 0 || (s.ok === s.total && s.pend === 0)) return 'ok';
+  // Crítico: mais de 30% dos documentos obrigatórios não entregues
+  const pctMissing = s.total > 0 ? s.missing / s.total : 0;
+  if (pctMissing > 0.3) return 'critico';
+  if (s.missing > 0 || s.pend > 0) return 'pendente';
   return 'ok';
 }
 
@@ -2357,8 +2359,11 @@ function renderControle() {
         const cl = v==='ok'?'ok':v==='pendente'?'pendente':v==='na'?'na':'vazio';
         const icon = v==='ok'?'✓':v==='pendente'?'!':v==='na'?'—':'✕';
         const tip = `${emp.nome} — ${dt.name}: ${v==='ok'?'Entregue':v==='pendente'?'Pendente':v==='na'?'Não aplicável':'Não entregue'}`;
-        // Se filtro ativo (critico/pendente/nao_entregue), destaca apenas os pendentes/faltantes
-        const dimmed = (statusF === 'critico' || statusF === 'pendente' || statusF === 'nao_entregue') && (v === 'ok' || v === 'na');
+        // Se filtro ativo, escurece docs já entregues/NA para focar nos pendentes
+        const alias2 = getCargoAlias(emp.cargo);
+        const isRequired = isDocRequired(dt, alias2) && !isDocSatisfiedByOr(dt.id, alias2, emp.docs || {});
+        const dimmed = (statusF === 'critico' || statusF === 'pendente' || statusF === 'nao_entregue')
+          && (v === 'ok' || v === 'na' || !isRequired);
         return `<td style="text-align:center;padding:4px 2px;${dimmed?'opacity:0.18;':''}">
           <div class="doc-cell ${cl}" title="${tip}" onclick="openEditDoc(${emp.id})">${icon}</div>
         </td>`;
@@ -2675,12 +2680,18 @@ function exportExcel() {
 // UTILS
 // ================================================================
 function destroyChart(id) {
+  // Destroy via our reference
   if (charts[id]) { try { charts[id].destroy(); } catch(e){} delete charts[id]; }
-  // Also destroy via Chart.js registry to avoid 'canvas already in use' error
-  const el = document.getElementById(id === 'chartCargo' ? 'chartCargo' : 'chartDonut');
-  if (el && window.Chart) {
-    const existing = Chart.getChart(el);
-    if (existing) { try { existing.destroy(); } catch(e){} }
+  // Destroy via Chart.js registry (prevents 'canvas already in use' error)
+  const canvasId = id === 'chartCargo' ? 'chartCargo' : 'chartDonut';
+  const el = document.getElementById(canvasId);
+  if (el) {
+    if (window.Chart) {
+      const existing = Chart.getChart(el);
+      if (existing) { try { existing.destroy(); } catch(e){} }
+    }
+    // Clear canvas pixels
+    el.width = el.width;
   }
 }
 function showModal(id) {
