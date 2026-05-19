@@ -952,7 +952,7 @@ const DOC_TYPES = [
   { id:'termo_conduta',    name:'Termo de Conduta',         short:'TC',     group:'conduta',     desc:'Termo de conduta e responsabilidade',                                  required:'all' },
   { id:'termo_resp_tcu',   name:'Termo Responsab. TCU',     short:'TR-TCU', group:'conduta',     desc:'Termo de responsabilidade emitido pelo TCU',                           required:'all' },
   { id:'dec_parentesco',   name:'Decl. Não Parentesco',     short:'DNP',    group:'conduta',     desc:'Declaração de não parentesco com servidores TCU',                      required:'all' },
-  { id:'termo_maleta',     name:'Termo Maleta',             short:'TM',     group:'conduta',     desc:'Termo de responsabilidade de maleta/equipamento',                      required:'all' },
+  { id:'termo_maleta',     name:'Termo Maleta',             short:'TM',     group:'conduta',     desc:'Termo de responsabilidade de maleta/equipamento — BSB, EST, AE, GSD',  required:['BSB','EST','AE','GSD'] },
   { id:'contrato',         name:'Contrato',                 short:'CONT',   group:'conduta',     desc:'Contrato de trabalho assinado',                                        required:'all' },
   // ── QUALIFICAÇÃO — Ensino Superior (todos) ────────────────────
   { id:'diploma',          name:'Diploma Ensino Superior',  short:'DIP',    group:'qualificacao',desc:'[a] Ensino superior em TI ou área afim + especialização em TI',       required:'all' },
