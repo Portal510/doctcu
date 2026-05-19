@@ -2108,7 +2108,7 @@ function composeEmailPendencias(empId) {
   if (!emp) return;
 
   const alias   = getCargoAlias(emp.cargo);
-  const missing = DOC_TYPES.filter(dt => isDocRequired(dt, alias) && emp.docs[dt.id] !== 'ok');
+  const missing = DOC_TYPES.filter(dt => isDocRequired(dt, alias) && emp.docs[dt.id] !== 'ok' && !isDocSatisfiedByOr(dt.id, alias, emp.docs || {}));
 
   const listaItens = missing.map(dt => `* ${dt.name} (${dt.short})`).join('\n');
 
@@ -2124,12 +2124,20 @@ Documentação pendente:
 
 ${listaItens}
 
+
+
 Solicitamos, por gentileza, que sejam incluídos no formulário indicado os documentos faltantes.
 
 Observações importantes:
 
-* Ao anexar, utilize a seguinte nomenclatura: tipo do documento + nome do colaborador (exemplo: ASO – João Pedro).
-* Favor anexar um documento por arquivo, para facilitar a conferência e organização.
+* Nomenclatura dos arquivos: ao anexar, utilize o padrão tipo do documento + nome do colaborador (exemplo: ASO – João Pedro).
+
+* Certificação de cursos: para certificados de cursos (ex.: 8h, 16h, 20h), acrescente a palavra curso após o nome do colaborador (exemplo: ITIL – Maria da Silva (curso)).
+
+* Certificados de certificação: para documentos como HDI, ITIL, MD 100/102, MS900, utilize o padrão tipo da certificação + nome do colaborador.
+          Exemplo: HDI SCLT – Antônio
+
+* Organização dos anexos: favor anexar apenas um documento por arquivo, a fim de facilitar a conferência e a organização.
 
 Forms: Solicitação de documentos pendentes – Preencher o formulário
 https://forms.office.com/r/7jxhLh7AH4
