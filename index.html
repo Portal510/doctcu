@@ -2850,10 +2850,15 @@ function handleDocFiles(files) {
     };
     if (isImg) {
       const reader = new FileReader();
-      reader.onload = ev => { doc.preview = ev.target.result; uploadedDocs.push(doc); };
+      reader.onload = ev => {
+        doc.preview = ev.target.result;
+        const jaExiste = uploadedDocs.some(d => d.name === doc.name && d.empId === doc.empId && d.doctypeId === doc.doctypeId);
+        if (!jaExiste) uploadedDocs.push(doc);
+      };
       reader.readAsDataURL(file);
     } else {
-      uploadedDocs.push(doc);
+      const jaExiste = uploadedDocs.some(d => d.name === doc.name && d.empId === doc.empId && d.doctypeId === doc.doctypeId);
+      if (!jaExiste) uploadedDocs.push(doc);
     }
     done++;
     const pct = Math.round(done / arr.length * 100);
@@ -2939,7 +2944,13 @@ async function handleZipImport(zipFile) {
         synced:       false,
         file,
       };
-      uploadedDocs.push(doc);
+      // Deduplicar — não adicionar se já existe doc com mesmo nome + colaborador + tipo
+      const jaExiste = uploadedDocs.some(d =>
+        d.name === shortName &&
+        d.empId === (resolvedEmp ? resolvedEmp.id : null) &&
+        d.doctypeId === resolvedDoctypeId
+      );
+      if (!jaExiste) uploadedDocs.push(doc);
 
       done++;
       const pct = Math.round(done / valid.length * 100);
