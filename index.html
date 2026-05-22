@@ -3416,11 +3416,24 @@ function gdUpdatePathPreview() {
 function gdBuildPath(emp, dt, mode) {
   mode = mode || gdState.folderMode;
   const alias   = getCargoAlias(emp.cargo);
-  const empName = sanitizeName(emp.nome);
-  if      (mode === 'cargo_nome')    return `${alias}/${empName}/${dt.name}`;
-  else if (mode === 'nome')          return `${empName}/${dt.name}`;
-  else if (mode === 'uf_cargo_nome') return `${emp.uf||'DF'}/${alias}/${empName}/${dt.name}`;
-  return `${alias}/${empName}/${dt.name}`;
+  // Use first name + last name only (max ~20 chars) to keep paths short
+  const nomePartes = emp.nome.trim().split(/\s+/);
+  const nomeShort  = nomePartes.length >= 2
+    ? `${nomePartes[0]}_${nomePartes[nomePartes.length-1]}`
+    : nomePartes[0];
+  const empName = sanitizeName(nomeShort);
+  // Use short code for doc type folder instead of full name
+  const dtFolder = dt.short.replace(/[^a-zA-Z0-9\-]/g,'');
+  if      (mode === 'cargo_nome')    return `${alias}/${empName}/${dtFolder}`;
+  else if (mode === 'nome')          return `${empName}/${dtFolder}`;
+  else if (mode === 'uf_cargo_nome') return `${emp.uf||'DF'}/${alias}/${empName}/${dtFolder}`;
+  return `${alias}/${empName}/${dtFolder}`;
+}
+
+// Helper: short name for files
+function shortNomeArquivo(emp) {
+  const p = emp.nome.trim().split(/\s+/);
+  return sanitizeName(p.length >= 2 ? `${p[0]}_${p[p.length-1]}` : p[0]);
 }
 
 // Called when modal opens
@@ -3437,7 +3450,7 @@ function downloadDocFile(doc) {
   const emp   = employees.find(e => e.id === doc.empId);
   const dt    = DOC_TYPES.find(d => d.id === doc.doctypeId);
   const ext   = (doc.file.name.split('.').pop() || 'pdf').toLowerCase();
-  const fname = emp && dt ? `${dt.short}_${sanitizeName(emp.nome)}.${ext}` : doc.file.name;
+  const fname = emp && dt ? `${dt.short}_${shortNomeArquivo(emp)}.${ext}` : doc.file.name;
   try {
     const freshBlob = new Blob([doc.file], { type: doc.file.type });
     const url = URL.createObjectURL(freshBlob);
@@ -3463,14 +3476,14 @@ async function downloadZip(docs) {
   toast('Gerando ZIP…', 'success');
 
   const zip  = new JSZip();
-  const root = zip.folder('Documentação comprobatória para o cargo');
+  const root = zip.folder('DocTCU');
 
   validDocs.forEach(doc => {
     const emp = employees.find(e => e.id === doc.empId);
     const dt  = DOC_TYPES.find(d => d.id === doc.doctypeId);
     if (!emp || !dt) return;
     const ext   = (doc.file.name.split('.').pop() || 'pdf').toLowerCase();
-    const fname = `${dt.short}_${sanitizeName(emp.nome)}.${ext}`;
+    const fname = `${dt.short}_${shortNomeArquivo(emp)}.${ext}`;
     const path  = gdBuildPath(emp, dt) + '/' + fname;
     root.file(path, doc.file);
   });
@@ -3482,7 +3495,7 @@ async function downloadZip(docs) {
   });
 
   const dateStr  = new Date().toISOString().split('T')[0];
-  const filename = `Documentação_comprobatória_${dateStr}.zip`;
+  const filename = `DocTCU_${dateStr}.zip`;
 
   // Store for re-download
   _lastZipBlob     = blob;
