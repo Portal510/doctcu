@@ -711,8 +711,8 @@
       <div class="section-sub">Matriz de conformidade documental por colaborador e tipo de documento</div>
     </div>
     <div style="display:flex;gap:10px;">
-      <button class="btn btn-secondary btn-sm" onclick="showModal('addemp')">+ Colaborador</button>
-      <button class="btn btn-danger btn-sm" onclick="showModal('limpar-marcacoes')" title="Zerar todos os documentos para novo ciclo de envio">🔄 Limpar marcações</button>
+      <button class="btn btn-secondary btn-sm" onclick="showModal('addemp')" data-admin-only data-admin-display="inline-flex">+ Colaborador</button>
+      <button id="btn-limpar-marcacoes" class="btn btn-secondary btn-sm" onclick="showModal('limpar-marcacoes')" data-admin-only data-admin-display="inline-flex" style="border-color:var(--red);color:var(--red);" title="Zerar marcações para novo ciclo de envio">🔄 Limpar marcações</button>
       <button class="btn btn-primary btn-sm" onclick="exportExcel()">⬇ Exportar</button>
     </div>
   </div>
@@ -1461,18 +1461,28 @@ function notifyDataChange() {
 
 
 function applyRoleRestrictions() {
-  if (isAdmin()) return;
+  if (isAdmin()) {
+    // Show admin-only elements
+    document.querySelectorAll('[data-admin-only]').forEach(el => {
+      el.style.display = el.dataset.adminDisplay || 'inline-flex';
+    });
+    return;
+  }
+  // VIEWER: hide admin-only elements
+  document.querySelectorAll('[data-admin-only]').forEach(el => {
+    el.style.display = 'none';
+  });
   // Hide aba Documentos (upload/sincronizar)
   const tabs = document.querySelectorAll('.nav-tab');
   if (tabs[2]) tabs[2].style.display = 'none';
   // Show viewer banner
   const b = document.getElementById('viewer-banner');
   if (b) b.style.display = 'flex';
-  // Disable write buttons
+  // Disable specific write action buttons only
+  const writeKeywords = ['Adicionar','Sincronizar','Salvar alterações','Importar','Limpar tudo'];
   document.querySelectorAll('button').forEach(btn => {
     const t = btn.textContent.trim();
-    if (['Adicionar','Sincronizar','Salvar','Importar','Exportar Excel','Remover','Limpar','Atualizar']
-        .some(k => t.includes(k)) && !t.includes('Exportar')) {
+    if (writeKeywords.some(k => t.includes(k))) {
       btn.disabled = true;
       btn.style.opacity = '0.35';
       btn.style.cursor = 'not-allowed';
