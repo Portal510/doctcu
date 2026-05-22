@@ -662,6 +662,47 @@
   </div>
 </div>
 
+<!-- LIMPAR MARCAÇÕES MODAL -->
+<div class="modal-overlay" id="modal-limpar-marcacoes">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title">🔄 Limpar Marcações — Novo Ciclo</div>
+      <button class="modal-close" onclick="closeModal('limpar-marcacoes')">✕</button>
+    </div>
+    <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.7;">
+      <strong style="color:var(--red);">⚠ Atenção:</strong> Esta ação irá zerar <strong>todos os documentos marcados como Entregue</strong> de todos os colaboradores, voltando tudo para "Não entregue".<br><br>
+      Use apenas para iniciar um novo ciclo de envio de documentação.
+    </div>
+    <div class="form-group">
+      <label class="form-label">O que deseja limpar?</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="limpar-opcao" value="todos" checked style="width:16px;height:16px;">
+          <span><strong>Todos os documentos</strong> — zera admissão, conduta e qualificação</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="limpar-opcao" value="qualificacao" style="width:16px;height:16px;">
+          <span><strong>Somente qualificação/certificações</strong> — mantém admissão e conduta</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="limpar-opcao" value="colaborador" style="width:16px;height:16px;">
+          <span><strong>Colaborador específico</strong> — selecione abaixo</span>
+        </label>
+      </div>
+    </div>
+    <div id="limpar-emp-wrap" style="display:none;" class="form-group">
+      <label class="form-label">Selecionar colaborador</label>
+      <select class="form-input" id="limpar-emp-select">
+        <option value="">Selecione...</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-secondary" onclick="closeModal('limpar-marcacoes')">Cancelar</button>
+      <button class="btn btn-danger" onclick="executarLimparMarcacoes()" style="font-weight:700;">🔄 Confirmar limpeza</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONTROLE DOCUMENTOS -->
 <div id="page-controle" class="page">
   <div class="section-header">
@@ -671,6 +712,7 @@
     </div>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-secondary btn-sm" onclick="showModal('addemp')">+ Colaborador</button>
+      <button class="btn btn-danger btn-sm" onclick="showModal('limpar-marcacoes')" title="Zerar todos os documentos para novo ciclo de envio">🔄 Limpar marcações</button>
       <button class="btn btn-primary btn-sm" onclick="exportExcel()">⬇ Exportar</button>
     </div>
   </div>
@@ -2588,6 +2630,42 @@ function addEmployee() {
   toast('Colaborador adicionado!', 'success');
 }
 
+function executarLimparMarcacoes() {
+  const opcao  = document.querySelector('input[name="limpar-opcao"]:checked')?.value || 'todos';
+  const empSel = document.getElementById('limpar-emp-select')?.value;
+
+  if (opcao === 'colaborador' && !empSel) {
+    toast('Selecione um colaborador.', 'error'); return;
+  }
+
+  const targets = opcao === 'colaborador'
+    ? employees.filter(e => String(e.id) === empSel)
+    : employees;
+
+  let count = 0;
+  targets.forEach(emp => {
+    const alias = getCargoAlias(emp.cargo);
+    DOC_TYPES.forEach(dt => {
+      if (!isDocRequired(dt, alias)) return;
+      // Filtra por grupo se necessário
+      if (opcao === 'qualificacao' && dt.group !== 'qualificacao' && dt.group !== 'cursos') return;
+      if (emp.docs[dt.id] === 'ok' || emp.docs[dt.id] === 'pendente') {
+        emp.docs[dt.id] = null;
+        count++;
+      }
+    });
+    // Limpa marcação de e-mail enviado também
+    emp.email_enviado = '';
+  });
+
+  closeModal('limpar-marcacoes');
+  fullRefresh();
+  notifyDataChange();
+
+  const nomes = opcao === 'colaborador' ? targets[0]?.nome : `${targets.length} colaboradores`;
+  toast(`🔄 ${count} marcação(ões) limpas para ${nomes}. Pronto para novo ciclo!`, 'success');
+}
+
 function removeEmployee(id) {
   if (!confirm('Remover este colaborador?')) return;
   employees = employees.filter(e => e.id !== id);
@@ -2725,6 +2803,23 @@ function destroyChart(id) {
 function showModal(id) {
   document.getElementById('modal-'+id).classList.add('open');
   if (id === 'onedrive') { gdInitModal(); gdUpdatePathPreview(); }
+  if (id === 'limpar-marcacoes') {
+    // Populate employee select
+    const sel = document.getElementById('limpar-emp-select');
+    sel.innerHTML = '<option value="">Selecione...</option>' +
+      [...employees].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'))
+        .map(e=>`<option value="${e.id}">${e.nome} (${getCargoAlias(e.cargo)||'?'})</option>`).join('');
+    // Wire radio change
+    document.querySelectorAll('input[name="limpar-opcao"]').forEach(r => {
+      r.onchange = () => {
+        document.getElementById('limpar-emp-wrap').style.display =
+          r.value === 'colaborador' && r.checked ? 'block' : 'none';
+      };
+    });
+    // Reset to default
+    document.querySelector('input[name="limpar-opcao"][value="todos"]').checked = true;
+    document.getElementById('limpar-emp-wrap').style.display = 'none';
+  }
 }
 function closeModal(id) { document.getElementById('modal-'+id).classList.remove('open'); }
 function showPage(id, el) {
