@@ -1388,6 +1388,21 @@ async function loadFromStorage() {
     if (!rows?.length || !Array.isArray(rows[0].employees) || rows[0].employees.length === 0) return false;
     employees = rows[0].employees;
     _lastSyncTs = new Date(rows[0].updated_at).getTime();
+
+    // Migração: garante que EXP e 40H estejam marcados como ok para todos
+    let migrated = false;
+    employees.forEach(emp => {
+      if (!emp.docs) emp.docs = {};
+      ['comprov_exp','trein_40h'].forEach(id => {
+        if (emp.docs[id] !== 'ok') { emp.docs[id] = 'ok'; migrated = true; }
+      });
+    });
+    // Se houve migração, salva de volta no Supabase
+    if (migrated && isAdmin()) {
+      console.log('[DocTCU] Migration: marking EXP and 40H as ok for all');
+      setTimeout(saveToStorage, 500);
+    }
+
     return true;
   } catch(err) {
     console.warn('[DocTCU] Supabase load error:', err);
