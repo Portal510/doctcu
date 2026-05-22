@@ -696,9 +696,12 @@
         <option value="">Selecione...</option>
       </select>
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
-      <button class="btn btn-secondary" onclick="closeModal('limpar-marcacoes')">Cancelar</button>
-      <button class="btn btn-danger" onclick="executarLimparMarcacoes()" style="font-weight:700;">🔄 Confirmar limpeza</button>
+    <div style="display:flex;gap:10px;justify-content:space-between;margin-top:8px;align-items:center;">
+      <button class="btn btn-danger" onclick="resetarTudoZero()" style="font-size:11px;opacity:.8;" title="Apaga tudo e reinicia do zero">⚠ Resetar tudo do zero</button>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" onclick="closeModal('limpar-marcacoes')">Cancelar</button>
+        <button class="btn btn-danger" onclick="executarLimparMarcacoes()" style="font-weight:700;">🔄 Confirmar limpeza</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2674,6 +2677,24 @@ function executarLimparMarcacoes() {
 
   const nomes = opcao === 'colaborador' ? targets[0]?.nome : `${targets.length} colaboradores`;
   toast(`🔄 ${count} marcação(ões) limpas para ${nomes}. Pronto para novo ciclo!`, 'success');
+}
+
+// Zera TUDO — apaga Supabase e reinicia com dados limpos
+async function resetarTudoZero() {
+  if (!confirm('⚠ ATENÇÃO\n\nIsso irá apagar TODOS os dados salvos e reiniciar do zero.\n\nTodos os documentos marcados serão perdidos.\n\nConfirmar?')) return;
+  const ind = document.getElementById('sync-indicator');
+  if (ind) { ind.textContent = '⏳ Resetando…'; ind.style.color = 'var(--yellow)'; }
+  try {
+    // Recria array de employees com todos docs null
+    loadSampleData();
+    // Salva no Supabase (sobrescreve tudo)
+    await saveToStorage();
+    fullRefresh();
+    if (ind) { ind.textContent = '✓ Resetado'; ind.style.color = 'var(--green)'; setTimeout(()=>{ if(ind) ind.textContent=''; },3000); }
+    toast('✅ Sistema resetado! Todos os documentos voltaram para Não Entregue.', 'success');
+  } catch(e) {
+    toast('Erro ao resetar: ' + e.message, 'error');
+  }
 }
 
 function removeEmployee(id) {
