@@ -772,6 +772,12 @@
         <option value="conduta">Conduta/Contrato</option>
       </select>
     </div>
+    <div class="filter-group">
+      <div class="filter-label">Documento</div>
+      <select id="ctrl-doc-filter" onchange="renderControle()">
+        <option value="">Todos os documentos</option>
+      </select>
+    </div>
   </div>
 
   <div class="card">
@@ -1676,9 +1682,12 @@ function loadSampleData() {
   employees = raw.map((e, i) => {
     const docs  = {};
     const alias = getCargoAlias(e.cargo);
-    // Todos os documentos iniciam como null (pendente) — dados limpos para início real
+    // Todos os documentos iniciam como null — exceto EXP e 40H que já são marcados como entregue
     DOC_TYPES.forEach(dt => {
-      docs[dt.id] = isDocRequired(dt, alias) ? null : 'na';
+      if (!isDocRequired(dt, alias)) { docs[dt.id] = 'na'; return; }
+      // Experiência e Treinamento 40h marcados como entregue por padrão
+      if (dt.id === 'comprov_exp' || dt.id === 'trein_40h') { docs[dt.id] = 'ok'; return; }
+      docs[dt.id] = null;
     });
     return { id: i + 1, nome: e.nome, cargo: e.cargo, uf: e.uf, cpf: e.cpf, entrada: e.entrada, saida: '', telefone: '', tablet: '', tablet_motivo: '', uniforme: '', uniforme_anexo: null, uniforme_anexo_nome: '', email_enviado: '', docs };
   });
@@ -1771,6 +1780,14 @@ function formatDateVal(v) {
 // INIT FILTERS
 // ================================================================
 function initFilters() {
+  // Populate doc filter
+  const docSel = document.getElementById('ctrl-doc-filter');
+  if (docSel) {
+    const cur = docSel.value;
+    docSel.innerHTML = '<option value="">Todos os documentos</option>' +
+      DOC_TYPES.map(dt => `<option value="${dt.id}">${dt.name} (${dt.short})</option>`).join('');
+    if (cur) docSel.value = cur;
+  }
   const cargos = [...new Set(employees.map(e => e.cargo).filter(Boolean))].sort();
   const ufs = [...new Set(employees.map(e => e.uf).filter(Boolean))].sort();
 
@@ -2386,8 +2403,11 @@ function renderControle() {
   const ativoF = document.getElementById('ctrl-ativo')?.value||'';
   const grupoF = document.getElementById('ctrl-grupo')?.value||'';
 
+  const docF = document.getElementById('ctrl-doc-filter')?.value||'';
+
   let visibleDocs = DOC_TYPES;
   if (grupoF) visibleDocs = DOC_TYPES.filter(d => d.group === grupoF);
+  if (docF)   visibleDocs = DOC_TYPES.filter(d => d.id === docF);
 
   let emps = employees.filter(e => {
     if (search && !e.nome.toLowerCase().includes(search)) return false;
@@ -2685,7 +2705,7 @@ async function resetarTudoZero() {
   const ind = document.getElementById('sync-indicator');
   if (ind) { ind.textContent = '⏳ Resetando…'; ind.style.color = 'var(--yellow)'; }
   try {
-    // Recria array de employees com todos docs null
+    // Recria array de employees com todos docs null (exceto EXP e 40H)
     loadSampleData();
     // Salva no Supabase (sobrescreve tudo)
     await saveToStorage();
